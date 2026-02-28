@@ -19,6 +19,41 @@ body {
   font-family: var(--dlx-font-table);
 }
 
+.dlx-matrix-svg {
+  width: 100%;
+  display: block;
+}
+
+.dlx-matrix-svg .matrix-bg {
+  fill: var(--dlx-table-bg);
+}
+
+.dlx-matrix-svg .matrix-col,
+.dlx-matrix-svg .matrix-row {
+  fill: transparent;
+}
+
+.dlx-matrix-svg .matrix-active-col {
+  fill: var(--dlx-col-active);
+}
+
+.dlx-matrix-svg .matrix-active-row {
+  fill: var(--dlx-row-active);
+}
+
+.dlx-matrix-svg .matrix-grid line {
+  stroke: var(--dlx-grid-border);
+  stroke-width: 1;
+}
+
+.dlx-matrix-svg .matrix-header,
+.dlx-matrix-svg .matrix-row-label,
+.dlx-matrix-svg .matrix-one {
+  fill: var(--dlx-text);
+  font-family: var(--dlx-font-table);
+  font-size: 34px;
+}
+
 .dlx-table th,
 .dlx-table td {
   border: 1px solid var(--dlx-grid-border);

@@ -26,21 +26,8 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-.dlx-table th,
-.dlx-table td {
-  height: 58px;
-  font-size: 1.8rem;
-}
-
-.dlx-table .row-col,
-.dlx-table .row-name {
-  width: 240px;
-  text-align: center;
-  font-size: 2rem;
-}
-
-.dlx-table .row-name {
-  color: #efefef;
+.dlx-matrix-svg {
+  min-width: 882px;
 }
 
 .status-panel {
@@ -91,14 +78,13 @@ h1 {
     grid-template-columns: 1fr;
   }
 
-  .dlx-table .row-col,
-  .dlx-table .row-name {
-    width: 180px;
+  .dlx-matrix-svg {
+    min-width: 760px;
   }
 
-  .dlx-table th,
-  .dlx-table td {
-    height: 48px;
+  .dlx-matrix-svg .matrix-header,
+  .dlx-matrix-svg .matrix-row-label,
+  .dlx-matrix-svg .matrix-one {
     font-size: 1.3rem;
   }
 }

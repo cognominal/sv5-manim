@@ -10,6 +10,7 @@
     type Cell,
     type Column,
   } from '@shared/dlx';
+  import MatrixTableSvg from '@shared/renderers/svg/MatrixTableSvg.svelte';
 
   const boardCells: Cell[] = ['c00', 'c01', 'c10', 'c11'];
 
@@ -63,36 +64,13 @@
 
   <section class="layout">
     <div class="table-wrap" role="region" aria-label="Exact cover matrix">
-      <table class="dlx-table" data-testid="matrix-table">
-        <thead>
-          <tr>
-            <th class="row-col">row</th>
-            {#each twoByTwoColumns as column}
-              <th
-                class:active-col={isColumnActive(column)}
-                data-testid={`header-${column}`}
-              >
-                {column}
-              </th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each twoByTwoRows as row}
-            <tr
-              class:active-row={currentStep.rowName === row.name}
-              data-testid={`row-${row.name}`}
-            >
-              <td class="row-name">{row.name}</td>
-              {#each twoByTwoColumns as column}
-                <td class:active-col={isColumnActive(column)}>
-                  {#if hasOne(row, column)}1{/if}
-                </td>
-              {/each}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <MatrixTableSvg
+        columns={twoByTwoColumns}
+        rows={twoByTwoRows}
+        {hasOne}
+        isColumnActive={isColumnActive}
+        isRowActive={(rowName) => currentStep.rowName === rowName}
+      />
     </div>
 
     <aside class="status-panel">
