@@ -1,64 +1,77 @@
 <script lang="ts">
-  type CellId = 'r0c0' | 'r0c1' | 'r1c0' | 'r1c1';
+  type Cell = 'c00' | 'c01' | 'c10' | 'c11';
+  type Piece = 'A' | 'B';
+  type Column = Piece | Cell;
 
-  type Step = {
-    id: number;
+  type RowDef = {
+    name: string;
+    piece: Piece;
+    cells: [Cell, Cell];
+  };
+
+  type PreviewStep = {
     label: string;
-    fill: CellId[];
-    focus?: CellId;
+    rowName?: string;
     note: string;
   };
 
-  const cellOrder: CellId[] = ['r0c0', 'r0c1', 'r1c0', 'r1c1'];
+  const columns: Column[] = ['A', 'B', 'c00', 'c01', 'c10', 'c11'];
 
-  const steps: Step[] = [
-    {
-      id: 0,
-      label: 'Start',
-      fill: [],
-      note: 'Empty 2x2 board. This mirrors the pre-selection state before any row is applied.',
-    },
-    {
-      id: 1,
-      label: 'Step 1',
-      fill: ['r0c0'],
-      focus: 'r0c0',
-      note: 'First cell is covered.',
-    },
-    {
-      id: 2,
-      label: 'Step 2',
-      fill: ['r0c0', 'r0c1'],
-      focus: 'r0c1',
-      note: 'Top row is now fully covered.',
-    },
-    {
-      id: 3,
-      label: 'Step 3',
-      fill: ['r0c0', 'r0c1', 'r1c0'],
-      focus: 'r1c0',
-      note: 'Coverage extends into bottom-left.',
-    },
-    {
-      id: 4,
-      label: 'Step 4',
-      fill: ['r0c0', 'r0c1', 'r1c0', 'r1c1'],
-      focus: 'r1c1',
-      note: 'Board is fully covered.',
-    },
+  const rows: RowDef[] = [
+    { name: 'A_h_r0', piece: 'A', cells: ['c00', 'c01'] },
+    { name: 'A_h_r1', piece: 'A', cells: ['c10', 'c11'] },
+    { name: 'A_v_c0', piece: 'A', cells: ['c00', 'c10'] },
+    { name: 'A_v_c1', piece: 'A', cells: ['c01', 'c11'] },
+    { name: 'B_h_r0', piece: 'B', cells: ['c00', 'c01'] },
+    { name: 'B_h_r1', piece: 'B', cells: ['c10', 'c11'] },
+    { name: 'B_v_c0', piece: 'B', cells: ['c00', 'c10'] },
+    { name: 'B_v_c1', piece: 'B', cells: ['c01', 'c11'] },
   ];
 
-  const size = 120;
-  const gap = 10;
-  const speedMs = 700;
+  const steps: PreviewStep[] = [
+    { label: 'Idle', note: 'Preview phase: rows are shown one by one.' },
+    ...rows.map((row) => ({
+      label: `Preview ${row.name}`,
+      rowName: row.name,
+      note: `Active row ${row.name}: ${row.piece} + ${row.cells.join(', ')}`,
+    })),
+  ];
+
+  const rowByName = new Map(rows.map((row) => [row.name, row]));
 
   let stepIndex = $state(0);
   let isPlaying = $state(true);
+  const tickMs = 850;
 
   const currentStep = $derived(steps[stepIndex]);
+  const activeRow = $derived(currentStep.rowName ? rowByName.get(currentStep.rowName) : undefined);
 
-  const isFilled = (cell: CellId): boolean => currentStep.fill.includes(cell);
-  const isFocused = (cell: CellId): boolean => currentStep.focus === cell;
+  const activeColumns = $derived.by(() => {
+    const cols = new Set<Column>();
+    if (activeRow) {
+      cols.add(activeRow.piece);
+      cols.add(activeRow.cells[0]);
+      cols.add(activeRow.cells[1]);
+    }
+    return cols;
+  });
+
+  const activeBoardCells = $derived.by(() => {
+    const cells = new Set<Cell>();
+    if (activeRow) {
+      cells.add(activeRow.cells[0]);
+      cells.add(activeRow.cells[1]);
+    }
+    return cells;
+  });
+
+  function hasOne(row: RowDef, column: Column): boolean {
+    return row.piece === column || row.cells.includes(column as Cell);
+  }
+
+  function isColumnActive(column: Column): boolean {
+    return activeColumns.has(column);
+  }
 
   function nextStep(): void {
     stepIndex = (stepIndex + 1) % steps.length;
@@ -77,54 +90,68 @@
     if (!isPlaying) return;
     const timer = setInterval(() => {
       nextStep();
-    }, speedMs);
+    }, tickMs);
     return () => clearInterval(timer);
   });
 </script>
 
 <main>
-  <h1>2x2 Table Fill Animation</h1>
-  <p class="subtitle">First incremental step of the Manim to Svelte/SVG port</p>
+  <h1>DLX 2x2 Matrix Preview</h1>
+  <p class="subtitle">Manim-like table styling and row preview behavior (first port slice)</p>
 
-  <section class="panel">
-    <svg
-      viewBox={`0 0 ${size * 2 + gap} ${size * 2 + gap}`}
-      role="img"
-      aria-label="Animated 2x2 table"
-    >
-      {#each cellOrder as cell, i}
-        {@const row = Math.floor(i / 2)}
-        {@const col = i % 2}
-        {@const x = col * (size + gap)}
-        {@const y = row * (size + gap)}
-
-        <rect
-          x={x}
-          y={y}
-          width={size}
-          height={size}
-          rx="14"
-          class:filled={isFilled(cell)}
-          class:focused={isFocused(cell)}
-        />
-
-        <text x={x + size / 2} y={y + size / 2 + 6} text-anchor="middle" class="cell-label">
-          {cell}
-        </text>
-      {/each}
-    </svg>
-
-    <div class="status">
-      <p><strong>{currentStep.label}</strong></p>
-      <p>{currentStep.note}</p>
-      <p>Filled cells: {currentStep.fill.length}/4</p>
+  <section class="layout">
+    <div class="table-wrap" role="region" aria-label="Exact cover matrix">
+      <table class="dlx-table">
+        <thead>
+          <tr>
+            <th class="row-col">row</th>
+            {#each columns as column}
+              <th class:active-col={isColumnActive(column)}>{column}</th>
+            {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each rows as row}
+            <tr class:active-row={currentStep.rowName === row.name}>
+              <td class="row-name">{row.name}</td>
+              {#each columns as column}
+                <td class:active-col={isColumnActive(column)}>
+                  {#if hasOne(row, column)}1{/if}
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
-  </section>
 
-  <section class="controls" aria-label="Animation controls">
-    <button type="button" onclick={previousStep}>Prev</button>
-    <button type="button" onclick={() => (isPlaying = !isPlaying)}>{isPlaying ? 'Pause' : 'Play'}</button>
-    <button type="button" onclick={nextStep}>Next</button>
-    <button type="button" onclick={reset}>Reset</button>
+    <aside class="status-panel">
+      <p class="step"><strong>{currentStep.label}</strong></p>
+      <p>{currentStep.note}</p>
+      <p>Phase: row preview</p>
+
+      <svg viewBox="0 0 218 218" role="img" aria-label="2x2 board">
+        {#each ['c00', 'c01', 'c10', 'c11'] as cell, i}
+          {@const x = (i % 2) * 109}
+          {@const y = Math.floor(i / 2) * 109}
+          <rect
+            x={x + 5}
+            y={y + 5}
+            width="99"
+            height="99"
+            rx="8"
+            class:board-active={activeBoardCells.has(cell as Cell)}
+          />
+          <text x={x + 54.5} y={y + 59} text-anchor="middle">{cell}</text>
+        {/each}
+      </svg>
+
+      <div class="controls" aria-label="Animation controls">
+        <button type="button" onclick={previousStep}>Prev</button>
+        <button type="button" onclick={() => (isPlaying = !isPlaying)}>{isPlaying ? 'Pause' : 'Play'}</button>
+        <button type="button" onclick={nextStep}>Next</button>
+        <button type="button" onclick={reset}>Reset</button>
+      </div>
+    </aside>
   </section>
 </main>
