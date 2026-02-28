@@ -58,6 +58,52 @@ Per-app usage pattern:
 - App imports one shared theme CSS file
 - App only defines scene-specific data + control wiring
 
+## User-Facing API Spec (Manim-Like)
+
+Goal: let users author scenes with names and flow similar to Python Manim while executing on Svelte/SVG internals.
+
+### Facade module
+
+Add a compatibility entrypoint:
+
+- `src/lib/manim.ts`
+
+This file exports the user-facing API:
+
+- scene objects: `Scene`, `Rect`, `Text`, `VGroup`
+- animation commands: `Create`, `FadeIn`, `Transform`
+- scene controls: `play(...)`, `wait(...)`
+- transform/layout methods: `scale(...)`, `toEdge(...)`, `nextTo(...)`
+
+### Internal mapping
+
+- `Rect`, `Text`, `VGroup` map to shared scene-node model in `src/lib/core/scene.ts`
+- `Create`, `FadeIn`, `Transform` map to transition descriptors in `src/lib/core/transitions.ts`
+- `play(...)` compiles commands into timeline segments in `src/lib/core/timeline.ts`
+- Svelte components in `src/lib/renderers/svg` only render compiled scene state
+
+### API behavior rules
+
+- Chainable object transforms should be supported (`rect.scale(0.8).toEdge('LEFT')`)
+- `play(...)` accepts one or many animations with optional runtime options
+- Timeline behavior is deterministic in test mode
+- Naming should prefer Manim-compatible terms unless there is a strong web-specific reason
+
+### Known compatibility differences
+
+Document and keep explicit:
+
+- coordinate system and units
+- text measurement/layout differences between browser and Manim
+- exact easing/timing differences when parity is approximate
+
+### Acceptance criteria
+
+- A simple example scene can be written in a Manim-like style without touching renderer internals
+- The same scene runs with shared SVG components and shared theme CSS
+- Playwright behavior tests validate `play`, `wait`, step progression, and object transform chaining
+- Snapshot tests confirm visual stability for representative Manim-like scenes
+
 ## Work Phases
 
 ## 1) Extract the Shared Theme

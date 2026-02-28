@@ -20,7 +20,9 @@ For this first slice, the app intentionally focuses on a single core mechanic:
 - Highlighting for the currently focused cell per step
 - Controls to inspect animation states manually
 
-This maps to the early visualization behavior in the Manim scene (state transitions and focused coverage) while keeping scope intentionally minimal.
+This maps to the early visualization behavior in the Manim scene
+(state transitions and focused coverage) while keeping scope
+intentionally minimal.
 
 ## Project structure
 
@@ -70,7 +72,9 @@ The original Manim file combines many concerns:
 - row preview and search-phase logic
 - Algorithm X / DLX state transitions
 
-Porting all of that at once to Svelte/TS/SVG would make debugging harder. This 2x2 app isolates the animation primitives we will reuse later:
+Porting all of that at once to Svelte/TS/SVG would make debugging
+harder. This 2x2 app isolates the animation primitives we will reuse
+later:
 
 - discrete state timeline
 - deterministic render from state
@@ -82,9 +86,11 @@ Porting all of that at once to Svelte/TS/SVG would make debugging harder. This 2
 Suggested progression from here:
 
 1. Promote hardcoded steps into typed data modules (rows/columns/placements).
-2. Replace simple fill timeline with row-based placements (piece + covered cells).
+2. Replace simple fill timeline with row-based placements
+   (piece + covered cells).
 3. Add a left-side matrix panel synchronized with board highlights.
-4. Introduce a minimal Algorithm X stepper (choose column, choose row, cover/uncover).
+4. Introduce a minimal Algorithm X stepper
+   (choose column, choose row, cover/uncover).
 5. Scale from 2x2 to the 3x2/three-tile problem from the Manim source.
 
 ## Notes
