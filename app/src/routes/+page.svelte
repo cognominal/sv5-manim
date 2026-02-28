@@ -1,0 +1,7 @@
+<section class="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+  <h1 class="text-2xl font-semibold text-slate-100">Manim Feature Sweep</h1>
+  <p class="mt-3 max-w-2xl text-slate-300">
+    Use the Scenes dropdown in the top bar to open a script/scene route.
+    This first slice implements only the mobjects basics port.
+  </p>
+</section>
