@@ -1,0 +1,130 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--dlx-bg);
+  color: var(--dlx-text);
+  font-family: var(--dlx-font-ui);
+}
+
+.dlx-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--dlx-table-bg);
+  color: var(--dlx-text);
+  font-family: var(--dlx-font-table);
+}
+
+.dlx-matrix-svg {
+  width: 100%;
+  display: block;
+}
+
+.dlx-matrix-svg .matrix-bg {
+  fill: var(--dlx-table-bg);
+}
+
+.dlx-matrix-svg .matrix-col,
+.dlx-matrix-svg .matrix-row {
+  fill: transparent;
+}
+
+.dlx-matrix-svg .matrix-active-col {
+  fill: var(--dlx-col-active);
+}
+
+.dlx-matrix-svg .matrix-active-row {
+  fill: var(--dlx-row-active);
+}
+
+.dlx-matrix-svg .matrix-grid line {
+  stroke: var(--dlx-grid-border);
+  stroke-width: 1;
+}
+
+.dlx-matrix-svg .matrix-header,
+.dlx-matrix-svg .matrix-row-label,
+.dlx-matrix-svg .matrix-one {
+  fill: var(--dlx-text);
+  font-family: var(--dlx-font-table);
+  font-size: 34px;
+}
+
+.dlx-table th,
+.dlx-table td {
+  border: 1px solid var(--dlx-grid-border);
+  text-align: center;
+  transition: background-color 240ms ease, color 240ms ease;
+}
+
+.dlx-table th {
+  font-weight: 700;
+  background: var(--dlx-table-head-bg);
+}
+
+.dlx-table tr.active-row td,
+.dlx-table tr.active-row .row-name {
+  background: var(--dlx-row-active);
+}
+
+.dlx-table .active-col {
+  background: var(--dlx-col-active);
+}
+
+.dlx-board rect {
+  fill: var(--dlx-board-cell-bg);
+  stroke: var(--dlx-board-cell-stroke);
+  transition: fill 220ms ease;
+}
+
+.dlx-board rect.board-active {
+  fill: var(--dlx-board-cell-active);
+}
+
+.dlx-button {
+  border: 1px solid var(--dlx-button-border);
+  background: var(--dlx-button-bg);
+  color: var(--dlx-text);
+  cursor: pointer;
+}
+
+.dlx-button:hover {
+  background: var(--dlx-button-hover-bg);
+}
+
+.scene-svg {
+  width: 100%;
+  max-width: 360px;
+  margin-top: 0.6rem;
+}
+
+.scene-svg .scene-bg {
+  fill: #080808;
+  stroke: var(--dlx-grid-border);
+  stroke-width: 1;
+}
+
+.scene-svg .scene-title {
+  fill: var(--dlx-text);
+  font-family: var(--dlx-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scene-svg .scene-row {
+  fill: #101010;
+}
+
+.scene-svg .scene-row.scene-active {
+  fill: var(--dlx-row-active);
+}
+
+.scene-svg .scene-row-text {
+  fill: var(--dlx-text);
+  font-family: var(--dlx-font-ui);
+  font-size: 12px;
+}

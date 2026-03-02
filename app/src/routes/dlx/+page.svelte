@@ -15,10 +15,10 @@
     twoByTwoRows,
     type Cell,
     type Column,
-  } from '../../../../src/lib/dlx';
-  import { Create, Rect, Scene } from '../../../../src/lib/manim';
-  import MatrixTableSvg from '../../../../src/lib/renderers/svg/MatrixTableSvg.svelte';
-  import SceneSvg from '../../../../src/lib/renderers/svg/SceneSvg.svelte';
+  } from '$lib/dlx';
+  import { Create, Rect, Scene } from '$lib/manim';
+  import MatrixTableSvg from '$lib/renderers/svg/MatrixTableSvg.svelte';
+  import SceneSvg from '$lib/renderers/svg/SceneSvg.svelte';
 
   const boardCells: Cell[] = ['c00', 'c01', 'c10', 'c11'];
   const rowByName = buildRowMap(twoByTwoRows);
