@@ -4,4 +4,8 @@
     Use the Scenes dropdown in the top bar to open a script/scene route.
     Time-wrap demo is available at <a class="text-cyan-300 underline" href="/time-wrap">/time-wrap</a>.
   </p>
+  <p class="mt-2 max-w-2xl text-slate-300">
+    DLX matrix animation is available at
+    <a class="text-cyan-300 underline" href="/dlx">/dlx</a>.
+  </p>
 </section>

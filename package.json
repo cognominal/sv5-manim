@@ -1,0 +1,10 @@
+{
+  "name": "dlx-sv-root",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --cwd app dev",
+    "build": "bun run --cwd app build",
+    "check": "bun run --cwd app check",
+    "test:e2e": "bun run --cwd app test:e2e"
+  }
+}

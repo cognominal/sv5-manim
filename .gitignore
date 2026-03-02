@@ -20,6 +20,10 @@ coverage/
 **/playwright-report/
 **/coverage/
 
+# Generated media exports
+media/ts-mp4/
+**/media/ts-mp4/
+
 # Logs
 *.log
 npm-debug.log*

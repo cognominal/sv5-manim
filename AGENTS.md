@@ -25,3 +25,8 @@
 - Run `bun run check` after Svelte/TypeScript changes.
 - If tests are present, run the project test command before finishing.
 - Fix warnings rather than deferring them.
+
+## Generated artifacts
+
+- Keep generated artifacts out of git (for example
+  `media/ts-mp4/`) via `.gitignore`.
