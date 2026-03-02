@@ -12,6 +12,10 @@ build/
 .svelte-kit/
 **/.svelte-kit/
 
+# Vercel generated files
+.vercel/
+**/.vercel/
+
 # Test artifacts
 test-results/
 playwright-report/

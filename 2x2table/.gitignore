@@ -5,6 +5,7 @@ node_modules/
 build/
 dist/
 .svelte-kit/
+.vercel/
 
 # Vite
 vite.config.ts.timestamp-*
