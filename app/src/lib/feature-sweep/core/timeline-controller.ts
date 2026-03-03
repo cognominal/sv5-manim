@@ -30,7 +30,7 @@ export function createTimelineControllerState(
 ): TimelineControllerState {
   return {
     mode: 'normal',
-    isPlaying: true,
+    isPlaying: false,
     currentTimeMs: 0,
     lastTickMs: 0,
     durationMs,
@@ -116,7 +116,16 @@ export function reduceTimelineState(
   }
 
   if (state.lastTickMs === 0) {
-    return { ...state, lastTickMs: command.nowMs };
+    const nextTime = clampTime(
+      state.currentTimeMs + state.frameStepMs,
+      state.durationMs,
+    );
+    return {
+      ...state,
+      currentTimeMs: nextTime,
+      lastTickMs: command.nowMs,
+      isPlaying: nextTime >= state.durationMs ? false : state.isPlaying,
+    };
   }
 
   const delta = command.nowMs - state.lastTickMs;

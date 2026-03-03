@@ -15,7 +15,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'mobjects_basics',
     title: '01 Mobjects Basics',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/mobjectsBasics.ts',
     scenes: [
       {
         id: 'basics_layout',
@@ -27,7 +27,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'transforms_core',
     title: '02 Transforms Core',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/transformsCore.ts',
     scenes: [
       {
         id: 'core_transform',
@@ -39,7 +39,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'rate_functions_and_timing',
     title: '03 Rate Functions and Timing',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/rateFunctionsTiming.ts',
     scenes: [
       {
         id: 'timing_demo',
@@ -51,7 +51,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'updaters_and_always_redraw',
     title: '04 Updaters and Always Redraw',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/updatersAlwaysRedraw.ts',
     scenes: [
       {
         id: 'updater_demo',
@@ -63,7 +63,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'paths_and_morphs',
     title: '05 Paths and Morphs',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/pathsMorphs.ts',
     scenes: [
       {
         id: 'path_morph',
@@ -75,7 +75,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'axes_graphs_and_plotting',
     title: '06 Axes Graphs and Plotting',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/axesGraphsPlotting.ts',
     scenes: [
       {
         id: 'axes_plot',
@@ -87,7 +87,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'text_math_tex',
     title: '07 Text Math Tex',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/textMathTex.ts',
     scenes: [
       {
         id: 'text_math',
@@ -99,7 +99,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'camera_and_3d',
     title: '08 Camera and 3D',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/cameraAnd3d.ts',
     scenes: [
       {
         id: 'camera_3d',
@@ -111,7 +111,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'lighting_and_shading_3d',
     title: '09 Lighting and Shading 3D',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/lightingShading3d.ts',
     scenes: [
       {
         id: 'lighting_3d',
@@ -123,7 +123,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'images_svg_and_assets',
     title: '10 Images SVG and Assets',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/imagesSvgAssets.ts',
     scenes: [
       {
         id: 'assets_demo',
@@ -135,7 +135,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'groups_layers_and_zindex',
     title: '11 Groups Layers and Z-Index',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/groupsLayersZindex.ts',
     scenes: [
       {
         id: 'layering_demo',
@@ -147,7 +147,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'scene_sections_and_voiceover_hooks',
     title: '12 Scene Sections and Voiceover Hooks',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/sceneSectionsVoiceover.ts',
     scenes: [
       {
         id: 'sections_demo',
@@ -159,7 +159,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'open_gl_vs_cairo_parity',
     title: '13 OpenGL vs Cairo Parity',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/openGlParity.ts',
     scenes: [
       {
         id: 'opengl_parity',
@@ -176,7 +176,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'export_profiles',
     title: '14 Export Profiles',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/exportProfiles.ts',
     scenes: [
       {
         id: 'profile_sample',
@@ -188,7 +188,7 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'regression_golden_frames',
     title: '15 Regression Golden Frames',
-    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    source: 'app/src/lib/ts-feature-sweep/ts/regressionGoldenFrames.ts',
     scenes: [
       {
         id: 'golden_seed',

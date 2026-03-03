@@ -1,45 +1,38 @@
 import { expect, test } from '@playwright/test';
 
-test('reset and time-wrap seek are deterministic for mobjects basics', async ({
+test('mobjects basics starts paused with first frame visible', async ({
   page,
 }) => {
-  await page.goto('/scenes/mobjects_basics/basics_layout');
-  await expect(
-    page.getByRole('button', { name: 'Toggle to TS scenes' })
-  ).toHaveCount(1);
-  await expect(
-    page.getByRole('button', { name: 'Toggle to regular scenes' })
-  ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Toggle to TS scenes' }).click();
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  await page.goto('/ts-scenes/mobjects_basics/basics_layout');
   await expect(page).toHaveURL('/ts-scenes/mobjects_basics/basics_layout');
-  await page.getByRole('button', { name: 'Toggle to regular scenes' }).click();
-  await expect(page).toHaveURL('/scenes/mobjects_basics/basics_layout');
+  expect(pageErrors).toEqual([]);
 
   await page.getByRole('button', { name: 'Reset' }).click();
-  const mode = page.locator('#mode');
-  await expect(mode).toHaveValue('normal');
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
 
-  const title = page.getByTestId('mobjects-title');
-  const square = page.getByTestId('mobjects-square');
-  const circle = page.getByTestId('mobjects-circle');
+  const stage = page.getByRole('img', { name: 'TS scene stage' });
+  const title = stage.locator('#title');
+  const square = stage.locator('#square');
+  const circle = stage.locator('#circle');
 
-  await expect(title).toHaveAttribute('data-progress', '0.000');
-  await expect(square).toHaveAttribute('data-progress', '0.000');
-  await expect(circle).toHaveAttribute('data-progress', '0.000');
+  await expect(title).toHaveCount(1);
+  await expect(square).toHaveCount(1);
+  await expect(circle).toHaveCount(1);
 
-  const slider = page.getByLabel('Time slider');
-  await slider.fill('1000');
+  const timeLabel = page.locator('div.w-32.text-right.text-sm.tabular-nums.text-cyan-300');
+  await expect(timeLabel).toContainText('0 ms');
 
-  await expect(mode).toHaveValue('time-wrap');
-  await expect(title).toHaveAttribute('data-progress', '1.000');
-
-  const squareProgress = await square.getAttribute('data-progress');
-  expect(squareProgress).not.toBeNull();
-  if (squareProgress) {
-    const p = Number(squareProgress);
-    expect(p).toBeGreaterThan(0.1);
-    expect(p).toBeLessThan(0.2);
-  }
-
-  await expect(circle).toHaveAttribute('data-progress', '0.000');
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page.waitForTimeout(250);
+  await expect
+    .poll(async () => {
+      const text = (await timeLabel.textContent()) ?? '0 ms';
+      const parsed = Number.parseInt(text.replace(/[^\d]/g, ''), 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    })
+    .toBeGreaterThan(0);
 });

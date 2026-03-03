@@ -10,6 +10,6 @@ class MobjectsBasics(Scene):
         row = VGroup(square, circle).arrange(RIGHT, buff=1.2)
         group = VGroup(label, row).arrange(direction=[0, -1, 0], buff=0.8)
 
-        self.play(FadeIn(label))
+        
         self.play(Create(square), Create(circle))
         self.wait(0.8)

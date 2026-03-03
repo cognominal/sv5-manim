@@ -1,22 +1,22 @@
 import type { Scene } from '$lib/feature-sweep/manim-api';
 import {
-  buildAxesGraphsPlottingScene,
-  buildCairoParityScene,
-  buildCameraAnd3DScene,
-  buildExportProfilesScene,
-  buildGroupsLayersZIndexScene,
-  buildImagesSvgAssetsScene,
-  buildLightingShading3DScene,
-  buildMobjectsBasicsScene,
-  buildOpenGLParityScene,
-  buildPathsMorphsScene,
-  buildRateFunctionsTimingScene,
-  buildRegressionGoldenFramesScene,
-  buildSceneSectionsVoiceoverScene,
-  buildTextMathTexScene,
-  buildTransformsCoreScene,
-  buildUpdatersAlwaysRedrawScene
-} from './scenes/allScenes';
+  buildAxesGraphsPlottingScene
+} from './ts/axesGraphsPlotting';
+import { buildCairoParityScene } from './ts/cairoParity';
+import { buildCameraAnd3DScene } from './ts/cameraAnd3d';
+import { buildExportProfilesScene } from './ts/exportProfiles';
+import { buildGroupsLayersZIndexScene } from './ts/groupsLayersZindex';
+import { buildImagesSvgAssetsScene } from './ts/imagesSvgAssets';
+import { buildLightingShading3DScene } from './ts/lightingShading3d';
+import { buildMobjectsBasicsScene } from './ts/mobjectsBasics';
+import { buildOpenGLParityScene } from './ts/openGlParity';
+import { buildPathsMorphsScene } from './ts/pathsMorphs';
+import { buildRateFunctionsTimingScene } from './ts/rateFunctionsTiming';
+import { buildRegressionGoldenFramesScene } from './ts/regressionGoldenFrames';
+import { buildSceneSectionsVoiceoverScene } from './ts/sceneSectionsVoiceover';
+import { buildTextMathTexScene } from './ts/textMathTex';
+import { buildTransformsCoreScene } from './ts/transformsCore';
+import { buildUpdatersAlwaysRedrawScene } from './ts/updatersAlwaysRedraw';
 
 export type TsSceneBuilder = () => Scene;
 

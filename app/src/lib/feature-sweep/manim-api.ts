@@ -101,6 +101,17 @@ export function Create(
   };
 }
 
+export function FadeIn(
+  target: Mobject,
+  opts?: { runTimeMs?: number }
+): Omit<Animation, 'runTimeMs' | 'phase'> & { runTimeMs?: number } {
+  return {
+    kind: 'create',
+    targetId: target.id,
+    runTimeMs: opts?.runTimeMs
+  };
+}
+
 export function Wait(
   runTimeMs: number
 ): Omit<Animation, 'runTimeMs' | 'phase'> & { runTimeMs: number } {
