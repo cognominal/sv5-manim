@@ -29,6 +29,9 @@
   let exportingProfile = $state<null | 'lowres' | 'medres' | 'hires'>(null);
   let exportMessage = $state('');
   let exportError = $state('');
+  let pyMp4Available = $state(false);
+  let pyMp4Checked = $state(false);
+  let pyProfile = $state<'lowres' | 'medres' | 'hires'>('medres');
   let exportReport = $state<{
     path: string;
     folderPath: string;
@@ -49,6 +52,9 @@
 
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
+  const pyMp4Url = $derived(
+    `/py-mp4/${data.script.id}/${data.scene.id}?profile=${pyProfile}`
+  );
 
   function dispatch(command: TimelineCommand): void {
     timeline = reduceTimelineState(timeline, command);
@@ -59,6 +65,31 @@
     data.script.id;
     data.scene.id;
     timeline = createTimelineControllerState(6000, FRAME_STEP_MS);
+  });
+
+  $effect(() => {
+    data.script.id;
+    data.scene.id;
+    pyProfile;
+    pyMp4Checked = false;
+    pyMp4Available = false;
+
+    const controller = new AbortController();
+    fetch(pyMp4Url, {
+      method: 'HEAD',
+      signal: controller.signal
+    })
+      .then((response) => {
+        pyMp4Available = response.ok;
+      })
+      .catch(() => {
+        pyMp4Available = false;
+      })
+      .finally(() => {
+        pyMp4Checked = true;
+      });
+
+    return () => controller.abort();
   });
 
   function onModeChange(next: Mode): void {
@@ -321,12 +352,54 @@
   {/if}
 
   {#if SceneComponent}
-    <div style={sceneContainerStyle} class={captureMode ? 'h-full' : ''}>
-      <SceneComponent
-        timeMs={timeline.currentTimeMs}
-        mode={timeline.mode}
-        progress={progress}
-      />
+    <div class={captureMode ? 'h-full' : 'grid gap-4 lg:grid-cols-2'}>
+      <div style={sceneContainerStyle} class={captureMode ? 'h-full' : ''}>
+        <SceneComponent
+          timeMs={timeline.currentTimeMs}
+          mode={timeline.mode}
+          progress={progress}
+        />
+      </div>
+      {#if !captureMode}
+        <aside class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <div class="mb-3 flex items-center gap-2">
+            <h2 class="text-sm font-semibold tracking-wide text-cyan-300">
+              Python (.py) MP4
+            </h2>
+            <select
+              class="ml-auto rounded-md border border-slate-700 bg-slate-950
+              px-2 py-1 text-xs"
+              bind:value={pyProfile}
+            >
+              <option value="lowres">lowres</option>
+              <option value="medres">medres</option>
+              <option value="hires">hires</option>
+            </select>
+          </div>
+          {#if pyMp4Available}
+            <video
+              class="w-full rounded-lg border border-slate-700 bg-black"
+              src={pyMp4Url}
+              controls
+              preload="metadata"
+            >
+              <track
+                kind="captions"
+                srclang="en"
+                label="No captions"
+                src="/captions/empty.vtt"
+              />
+            </video>
+          {:else if pyMp4Checked}
+            <p class="text-sm text-slate-300">
+              No Python MP4 found for this scene in
+              `media/py-mp4/{data.script.id}/{data.scene.id}`.
+            </p>
+          {:else}
+            <p class="text-sm text-slate-400">Checking Python MP4...</p>
+          {/if}
+        </aside>
+      {/if}
     </div>
   {:else}
     <div class="rounded-xl border border-amber-700/60 bg-amber-950/40 p-4 text-amber-100">

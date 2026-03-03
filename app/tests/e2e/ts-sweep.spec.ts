@@ -55,9 +55,9 @@ test('ts sweep route and ts scene rendering work from top nav', async ({
 
   await slider.fill('1710');
   await expect(square).toHaveCount(1);
-  await expect(circle).toHaveCount(0);
+  await expect(circle).toHaveCount(1);
 
-  await slider.fill('2560');
+  await slider.fill('2000');
   await expect(circle).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Reset' }).click();

@@ -15,13 +15,15 @@ export type Mobject = {
 };
 
 export type Animation = {
-  kind: 'create';
-  targetId: string;
+  kind: 'create' | 'wait';
+  targetId?: string;
   runTimeMs: number;
+  phase: number;
 };
 
 export class Scene {
   private defaultCreateMs: number;
+  private phase = 0;
   mobjects: Mobject[] = [];
   timeline: Animation[] = [];
 
@@ -33,11 +35,18 @@ export class Scene {
     this.mobjects.push(...mobjects);
   }
 
-  play(animation: Omit<Animation, 'runTimeMs'> & { runTimeMs?: number }): void {
-    this.timeline.push({
-      ...animation,
-      runTimeMs: animation.runTimeMs ?? this.defaultCreateMs,
-    });
+  play(...animations: Array<Omit<Animation, 'runTimeMs' | 'phase'> & {
+    runTimeMs?: number;
+  }>): void {
+    if (animations.length === 0) return;
+    for (const animation of animations) {
+      this.timeline.push({
+        ...animation,
+        runTimeMs: animation.runTimeMs ?? this.defaultCreateMs,
+        phase: this.phase
+      });
+    }
+    this.phase += 1;
   }
 }
 
@@ -81,9 +90,22 @@ export function TitleText(id: string, opts: { x: number; y: number; value: strin
   };
 }
 
-export function Create(target: Mobject): Omit<Animation, 'runTimeMs'> {
+export function Create(
+  target: Mobject,
+  opts?: { runTimeMs?: number }
+): Omit<Animation, 'runTimeMs' | 'phase'> & { runTimeMs?: number } {
   return {
     kind: 'create',
     targetId: target.id,
+    runTimeMs: opts?.runTimeMs
+  };
+}
+
+export function Wait(
+  runTimeMs: number
+): Omit<Animation, 'runTimeMs' | 'phase'> & { runTimeMs: number } {
+  return {
+    kind: 'wait',
+    runTimeMs
   };
 }

@@ -9,12 +9,11 @@
   const { mobjects, progressById }: Props = $props();
 
   function strokeDash(progress: number, length: number): string {
-    const remaining = Math.max(0, length * (1 - progress));
     return `${length} ${length}`;
   }
 
   function strokeOffset(progress: number, length: number): number {
-    return Math.max(0, length * (1 - progress));
+    return -Math.max(0, length * (1 - progress));
   }
 </script>
 

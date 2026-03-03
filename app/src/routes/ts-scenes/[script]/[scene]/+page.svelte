@@ -9,6 +9,7 @@
   } from '$lib/feature-sweep/core/timeline-controller';
   import { FRAME_STEP_MS } from '$lib/feature-sweep/time-wrap/core';
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
+  import { pyDurationMsFor } from '$lib/ts-feature-sweep/py-duration-ms';
   import { sceneBuilderFor } from '$lib/ts-feature-sweep/registry';
 
   const { data } = $props<{
@@ -30,6 +31,9 @@
   let exportingProfile = $state<null | 'lowres' | 'medres' | 'hires'>(null);
   let exportMessage = $state('');
   let exportError = $state('');
+  let pyMp4Available = $state(false);
+  let pyMp4Checked = $state(false);
+  let pyProfile = $state<'lowres' | 'medres' | 'hires'>('medres');
   let exportReport = $state<{
     path: string;
     folderPath: string;
@@ -48,22 +52,57 @@
   const scene = $derived(builder?.());
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
+  const pyMp4Url = $derived(
+    `/py-mp4/${data.script.id}/${data.scene.id}?profile=${pyProfile}`
+  );
 
-  const totalMs = $derived(
-    scene ? scene.timeline.reduce((sum, step) => sum + step.runTimeMs, 0) : 0
+  const intrinsicTotalMs = $derived(
+    scene
+      ? Array.from(
+          scene.timeline.reduce((phases, step) => {
+            const prev = phases.get(step.phase) ?? 0;
+            phases.set(step.phase, Math.max(prev, step.runTimeMs));
+            return phases;
+          }, new Map<number, number>()).values()
+        ).reduce((sum, phaseMs) => sum + phaseMs, 0)
+      : 0
+  );
+  const targetDurationMs = $derived(
+    pyDurationMsFor(data.script.id, data.scene.id) ?? intrinsicTotalMs
+  );
+  const intrinsicTimeMs = $derived(
+    timeline.durationMs > 0 && intrinsicTotalMs > 0
+      ? (timeline.currentTimeMs / timeline.durationMs) * intrinsicTotalMs
+      : timeline.currentTimeMs
   );
 
   const progressById = $derived.by(() => {
     if (!scene) return new Map<string, number>();
     const byId = new Map<string, number>();
-    let start = 0;
+    const stepsByPhase = scene.timeline.reduce((phases, step) => {
+      const group = phases.get(step.phase) ?? [];
+      group.push(step);
+      phases.set(step.phase, group);
+      return phases;
+    }, new Map<number, typeof scene.timeline>());
+    let phaseStart = 0;
 
-    for (const step of scene.timeline) {
-      const raw = (timeline.currentTimeMs - start) / step.runTimeMs;
-      const progress = Math.max(0, Math.min(1, raw));
-      const previous = byId.get(step.targetId) ?? 0;
-      byId.set(step.targetId, Math.max(previous, progress));
-      start += step.runTimeMs;
+    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
+      const steps = stepsByPhase.get(phase) ?? [];
+      const phaseDuration = steps.reduce(
+        (maxMs, step) => Math.max(maxMs, step.runTimeMs),
+        0
+      );
+
+      for (const step of steps) {
+        if (step.kind !== 'create' || !step.targetId) continue;
+        const raw = (intrinsicTimeMs - phaseStart) / step.runTimeMs;
+        const stepProgress = Math.max(0, Math.min(1, raw));
+        const previous = byId.get(step.targetId) ?? 0;
+        byId.set(step.targetId, Math.max(previous, stepProgress));
+      }
+
+      phaseStart += phaseDuration;
     }
 
     return byId;
@@ -76,8 +115,33 @@
   $effect(() => {
     data.script.id;
     data.scene.id;
-    const ms = totalMs > 0 ? totalMs : 6000;
+    const ms = targetDurationMs > 0 ? targetDurationMs : 6000;
     timeline = createTimelineControllerState(ms, FRAME_STEP_MS);
+  });
+
+  $effect(() => {
+    data.script.id;
+    data.scene.id;
+    pyProfile;
+    pyMp4Checked = false;
+    pyMp4Available = false;
+
+    const controller = new AbortController();
+    fetch(pyMp4Url, {
+      method: 'HEAD',
+      signal: controller.signal
+    })
+      .then((response) => {
+        pyMp4Available = response.ok;
+      })
+      .catch(() => {
+        pyMp4Available = false;
+      })
+      .finally(() => {
+        pyMp4Checked = true;
+      });
+
+    return () => controller.abort();
   });
 
   $effect(() => {
@@ -373,7 +437,49 @@
   {/if}
 
   {#if scene}
-    <TsSceneStage mobjects={scene.mobjects} {progressById} />
+    <div class={captureMode ? 'h-full' : 'grid gap-4 lg:grid-cols-2'}>
+      <TsSceneStage mobjects={scene.mobjects} {progressById} />
+      {#if !captureMode}
+        <aside class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <div class="mb-3 flex items-center gap-2">
+            <h2 class="text-sm font-semibold tracking-wide text-cyan-300">
+              Python (.py) MP4
+            </h2>
+            <select
+              class="ml-auto rounded-md border border-slate-700 bg-slate-950
+              px-2 py-1 text-xs"
+              bind:value={pyProfile}
+            >
+              <option value="lowres">lowres</option>
+              <option value="medres">medres</option>
+              <option value="hires">hires</option>
+            </select>
+          </div>
+          {#if pyMp4Available}
+            <video
+              class="w-full rounded-lg border border-slate-700 bg-black"
+              src={pyMp4Url}
+              controls
+              preload="metadata"
+            >
+              <track
+                kind="captions"
+                srclang="en"
+                label="No captions"
+                src="/captions/empty.vtt"
+              />
+            </video>
+          {:else if pyMp4Checked}
+            <p class="text-sm text-slate-300">
+              No Python MP4 found for this scene in
+              `media/py-mp4/{data.script.id}/{data.scene.id}`.
+            </p>
+          {:else}
+            <p class="text-sm text-slate-400">Checking Python MP4...</p>
+          {/if}
+        </aside>
+      {/if}
+    </div>
   {:else}
     <div class="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-rose-200">
       Missing TS scene builder.

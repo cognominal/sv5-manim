@@ -89,10 +89,13 @@ export function reduceTimelineState(
   }
 
   if (command.type === 'playPause') {
+    const toggledPlaying = !state.isPlaying;
+    const restartAtStart = toggledPlaying && state.currentTimeMs >= state.durationMs;
     return {
       ...state,
       mode: 'normal',
-      isPlaying: !state.isPlaying,
+      isPlaying: toggledPlaying,
+      currentTimeMs: restartAtStart ? 0 : state.currentTimeMs,
       lastTickMs: 0,
     };
   }
