@@ -15,12 +15,185 @@ export const tsScripts: TsScriptEntry[] = [
   {
     id: 'mobjects_basics',
     title: '01 Mobjects Basics',
-    source: 'app/src/lib/ts-feature-sweep/scenes/mobjectsBasics.ts',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
     scenes: [
       {
         id: 'basics_layout',
         title: 'Basics Layout',
         description: 'Square, circle, and title from TS scene source.'
+      }
+    ]
+  },
+  {
+    id: 'transforms_core',
+    title: '02 Transforms Core',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'core_transform',
+        title: 'Core Transform',
+        description: 'Create and replace transform baseline.'
+      }
+    ]
+  },
+  {
+    id: 'rate_functions_and_timing',
+    title: '03 Rate Functions and Timing',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'timing_demo',
+        title: 'Timing Demo',
+        description: 'Motion with custom rate function.'
+      }
+    ]
+  },
+  {
+    id: 'updaters_and_always_redraw',
+    title: '04 Updaters and Always Redraw',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'updater_demo',
+        title: 'Updater Demo',
+        description: 'Tracker-driven scene updates.'
+      }
+    ]
+  },
+  {
+    id: 'paths_and_morphs',
+    title: '05 Paths and Morphs',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'path_morph',
+        title: 'Path Morph',
+        description: 'Path traversal and shape morphing.'
+      }
+    ]
+  },
+  {
+    id: 'axes_graphs_and_plotting',
+    title: '06 Axes Graphs and Plotting',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'axes_plot',
+        title: 'Axes Plot',
+        description: 'Simple plotted function over axes.'
+      }
+    ]
+  },
+  {
+    id: 'text_math_tex',
+    title: '07 Text Math Tex',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'text_math',
+        title: 'Text + Math',
+        description: 'Text and math expression composition.'
+      }
+    ]
+  },
+  {
+    id: 'camera_and_3d',
+    title: '08 Camera and 3D',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'camera_3d',
+        title: 'Camera 3D',
+        description: '3D axes with camera orientation.'
+      }
+    ]
+  },
+  {
+    id: 'lighting_and_shading_3d',
+    title: '09 Lighting and Shading 3D',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'lighting_3d',
+        title: 'Lighting 3D',
+        description: 'Shaded 3D forms under camera motion.'
+      }
+    ]
+  },
+  {
+    id: 'images_svg_and_assets',
+    title: '10 Images SVG and Assets',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'assets_demo',
+        title: 'Assets Demo',
+        description: 'Asset loading fallback behavior.'
+      }
+    ]
+  },
+  {
+    id: 'groups_layers_and_zindex',
+    title: '11 Groups Layers and Z-Index',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'layering_demo',
+        title: 'Layering Demo',
+        description: 'Group and z-index ordering.'
+      }
+    ]
+  },
+  {
+    id: 'scene_sections_and_voiceover_hooks',
+    title: '12 Scene Sections and Voiceover Hooks',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'sections_demo',
+        title: 'Sections Demo',
+        description: 'Section markers for editorial workflows.'
+      }
+    ]
+  },
+  {
+    id: 'open_gl_vs_cairo_parity',
+    title: '13 OpenGL vs Cairo Parity',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'opengl_parity',
+        title: 'OpenGL Parity',
+        description: 'OpenGL render parity scene.'
+      },
+      {
+        id: 'cairo_parity',
+        title: 'Cairo Parity',
+        description: 'Cairo render parity scene.'
+      }
+    ]
+  },
+  {
+    id: 'export_profiles',
+    title: '14 Export Profiles',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'profile_sample',
+        title: 'Profile Sample',
+        description: 'Export settings baseline sample.'
+      }
+    ]
+  },
+  {
+    id: 'regression_golden_frames',
+    title: '15 Regression Golden Frames',
+    source: 'app/src/lib/ts-feature-sweep/scenes/allScenes.ts',
+    scenes: [
+      {
+        id: 'golden_seed',
+        title: 'Golden Seed',
+        description: 'Deterministic seeded frame baseline.'
       }
     ]
   }

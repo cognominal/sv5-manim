@@ -4,6 +4,16 @@ test('reset and time-wrap seek are deterministic for mobjects basics', async ({
   page,
 }) => {
   await page.goto('/scenes/mobjects_basics/basics_layout');
+  await expect(
+    page.getByRole('button', { name: 'Toggle to TS scenes' })
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole('button', { name: 'Toggle to regular scenes' })
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Toggle to TS scenes' }).click();
+  await expect(page).toHaveURL('/ts-scenes/mobjects_basics/basics_layout');
+  await page.getByRole('button', { name: 'Toggle to regular scenes' }).click();
+  await expect(page).toHaveURL('/scenes/mobjects_basics/basics_layout');
 
   await page.getByRole('button', { name: 'Reset' }).click();
   const mode = page.locator('#mode');
