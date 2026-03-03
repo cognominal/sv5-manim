@@ -116,6 +116,57 @@
     return byId;
   });
 
+  const replacementState = $derived.by(() => {
+    const active: Array<{ sourceId: string; targetId: string; progress: number }> = [];
+    const completedSources = new Set<string>();
+    const completedTargets = new Set<string>();
+    if (!scene) {
+      return { active, completedSources, completedTargets };
+    }
+
+    const stepsByPhase = scene.timeline.reduce((phases, step) => {
+      const group = phases.get(step.phase) ?? [];
+      group.push(step);
+      phases.set(step.phase, group);
+      return phases;
+    }, new Map<number, typeof scene.timeline>());
+    let phaseStart = 0;
+
+    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
+      const steps = stepsByPhase.get(phase) ?? [];
+      const phaseDuration = steps.reduce(
+        (maxMs, step) => Math.max(maxMs, step.runTimeMs),
+        0
+      );
+
+      for (const step of steps) {
+        if (
+          step.kind !== 'replacementTransform' ||
+          !step.sourceId ||
+          !step.targetId
+        ) {
+          continue;
+        }
+        const raw = (intrinsicTimeMs - phaseStart) / step.runTimeMs;
+        const stepProgress = Math.max(0, Math.min(1, raw));
+        if (stepProgress > 0 && stepProgress < 1) {
+          active.push({
+            sourceId: step.sourceId,
+            targetId: step.targetId,
+            progress: stepProgress
+          });
+        }
+        if (stepProgress >= 1) {
+          completedSources.add(step.sourceId);
+          completedTargets.add(step.targetId);
+        }
+      }
+
+      phaseStart += phaseDuration;
+    }
+    return { active, completedSources, completedTargets };
+  });
+
   function dispatch(command: TimelineCommand): void {
     timeline = reduceTimelineState(timeline, command);
   }
@@ -355,7 +406,13 @@
 {#if captureMode}
   <section class="h-full">
     {#if scene}
-      <TsSceneStage mobjects={scene.mobjects} {progressById} />
+      <TsSceneStage
+        mobjects={scene.mobjects}
+        {progressById}
+        replacements={replacementState.active}
+        completedReplacementSources={replacementState.completedSources}
+        completedReplacementTargets={replacementState.completedTargets}
+      />
     {:else if !sceneResolved}
       <div class="h-full rounded-xl border border-slate-800 bg-slate-950"></div>
     {:else}
@@ -496,7 +553,13 @@
             </div>
 
             {#if scene}
-              <TsSceneStage mobjects={scene.mobjects} {progressById} />
+              <TsSceneStage
+                mobjects={scene.mobjects}
+                {progressById}
+                replacements={replacementState.active}
+                completedReplacementSources={replacementState.completedSources}
+                completedReplacementTargets={replacementState.completedTargets}
+              />
               <aside
                 class="rounded-xl border border-slate-800 bg-slate-900/60 p-4"
                 data-testid="mp4-compare-pane"

@@ -15,8 +15,9 @@ export type Mobject = {
 };
 
 export type Animation = {
-  kind: 'create' | 'wait';
+  kind: 'create' | 'wait' | 'replacementTransform';
   targetId?: string;
+  sourceId?: string;
   runTimeMs: number;
   phase: number;
 };
@@ -118,5 +119,18 @@ export function Wait(
   return {
     kind: 'wait',
     runTimeMs
+  };
+}
+
+export function ReplacementTransform(
+  source: Mobject,
+  target: Mobject,
+  opts?: { runTimeMs?: number }
+): Omit<Animation, 'runTimeMs' | 'phase'> & { runTimeMs?: number } {
+  return {
+    kind: 'replacementTransform',
+    sourceId: source.id,
+    targetId: target.id,
+    runTimeMs: opts?.runTimeMs
   };
 }

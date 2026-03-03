@@ -1,4 +1,11 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/feature-sweep/manim-api';
+import {
+  Circle,
+  Create,
+  ReplacementTransform,
+  Scene,
+  Square,
+  TitleText
+} from '$lib/feature-sweep/manim-api';
 
 export function buildTransformsCoreScene(): Scene {
   const scene = new Scene(900);
@@ -7,6 +14,7 @@ export function buildTransformsCoreScene(): Scene {
   const to = Circle('circle_to', { x: 520, y: 256, radius: 56, stroke: '#f59e0b' });
   scene.add(title, from, to);
   scene.play(Create(title));
-  scene.play(Create(from), Create(to));
+  scene.play(Create(from));
+  scene.play(ReplacementTransform(from, to, { runTimeMs: 1100 }));
   return scene;
 }

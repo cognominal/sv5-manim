@@ -1,6 +1,15 @@
 # imanin
 
 We want to get to an interactive manim in svelte.
+The idea is to support an API akin to the manim one, but in ts instead of
+python.
+
+## getting something minimal
+
+As a first stagee,
+We try to get feature parity from some random .py manim files
+codex lifted from somewhere or created out of whole cloth.
+
 As a litmus test we want to port dlx_3x2_three_tiles.py and do an
 interactive imanim presentation about dlx to solve it.
 

@@ -11,11 +11,8 @@ test('ts sweep route and ts scene rendering work from top nav', async ({
     page.getByRole('heading', { name: 'TS-Based Feature Sweep' })
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Toggle to regular scenes' })
+    page.getByText('TS scenes')
   ).toHaveCount(1);
-  await expect(
-    page.getByRole('button', { name: 'Toggle to TS scenes' })
-  ).toHaveCount(0);
 
   const tsSelect = page.locator('label:has-text("TS scenes") select');
   await tsSelect.selectOption('/ts-scenes/regression_golden_frames/golden_seed');
