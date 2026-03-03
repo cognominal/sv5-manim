@@ -27,6 +27,13 @@ coverage/
 # Generated media exports
 media/ts-mp4/
 **/media/ts-mp4/
+media/py-mp4/
+**/media/py-mp4/
+
+# Python generated caches
+__pycache__/
+**/__pycache__/
+*.pyc
 
 # Logs
 *.log

@@ -29,4 +29,5 @@
 ## Generated artifacts
 
 - Keep generated artifacts out of git (for example
-  `media/ts-mp4/`) via `.gitignore`.
+  `media/ts-mp4/`, `media/py-mp4/`, and Python `__pycache__/`) via
+  `.gitignore`.
