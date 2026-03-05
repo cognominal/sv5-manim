@@ -15,7 +15,7 @@ import {
   UL,
   UP,
   UR
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildPositioningPrimitivesScene(): Scene {
   const scene = new Scene(1);

@@ -8,7 +8,7 @@ import {
   sceneDurationSec,
   scenePhases,
   type ScenePhase,
-} from '$lib/manim-api';
+} from '$lib/manim';
 import { buildRowMap, type RowDef } from '$lib/dlx';
 
 export const DLXN_PY_SCRIPT_PATH = 'dlx_3x2_three_tiles.py';

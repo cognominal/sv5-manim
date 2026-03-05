@@ -4,7 +4,7 @@ import {
   Line,
   MoveAlongPath,
   Scene
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildUpdatersAlwaysRedrawScene(): Scene {
   const scene = new Scene(1);

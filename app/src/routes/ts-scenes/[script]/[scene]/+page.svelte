@@ -9,7 +9,7 @@
     type TimelineCommand
   } from '$lib/feature-sweep/core/timeline-controller';
   import { FRAME_STEP_SEC } from '$lib/feature-sweep/time-wrap/core';
-  import type { Point, Scene } from '$lib/manim-api';
+  import type { Point, Scene } from '$lib/manim';
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
   import SplitPane from '$lib/vendor/rich-split-pane/SplitPane.svelte';
   import type { Length } from '$lib/vendor/rich-split-pane/types';
@@ -82,6 +82,10 @@
   let targetDurationSec = $state(6);
   let mainSplitPos = $state<Length>('52%');
   let codeSplitPos = $state<Length>('50%');
+  const layoutStorageKey = $derived(
+    `ts-scene-layout:v1:${data.script.id}:${data.scene.id}`
+  );
+  let layoutRestoredKey = $state('');
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
 
@@ -274,7 +278,10 @@
       const targetSec = targetSecFromPy ?? intrinsicTotalSec;
       targetDurationSec = targetSec;
       const durationSec = targetSec > 0 ? targetSec : 6;
-      timeline = createTimelineControllerState(durationSec, FRAME_STEP_SEC);
+      timeline = {
+        ...createTimelineControllerState(durationSec, FRAME_STEP_SEC),
+        isPlaying: true,
+      };
     } catch (cause) {
       scene = null;
       intrinsicTotalSec = 0;
@@ -299,9 +306,56 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  function restoreLayoutFromStorage(): void {
+    if (!browser || captureMode) return;
+    const raw = localStorage.getItem(layoutStorageKey);
+    if (!raw) {
+      layoutRestoredKey = layoutStorageKey;
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        viewportWidth?: number;
+        viewportHeight?: number;
+        mainSplitPos?: Length;
+        codeSplitPos?: Length;
+      };
+      if (
+        parsed.viewportWidth === window.innerWidth &&
+        parsed.viewportHeight === window.innerHeight
+      ) {
+        if (parsed.mainSplitPos) mainSplitPos = parsed.mainSplitPos;
+        if (parsed.codeSplitPos) codeSplitPos = parsed.codeSplitPos;
+      }
+    } catch {
+      // Ignore malformed persisted layout and keep defaults.
+    } finally {
+      layoutRestoredKey = layoutStorageKey;
+    }
+  }
+
   $effect(() => {
     if (!browser || captureMode) return;
     document.documentElement.style.setProperty('--ts-left-pane', mainSplitPos);
+  });
+
+  $effect(() => {
+    if (!browser || captureMode) return;
+    layoutStorageKey;
+    if (layoutRestoredKey === layoutStorageKey) return;
+    restoreLayoutFromStorage();
+  });
+
+  $effect(() => {
+    if (!browser || captureMode) return;
+    if (layoutRestoredKey !== layoutStorageKey) return;
+    const payload = {
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      mainSplitPos,
+      codeSplitPos,
+    };
+    localStorage.setItem(layoutStorageKey, JSON.stringify(payload));
   });
 
   onDestroy(() => {
@@ -316,6 +370,7 @@
     tsSourceMtimeMs = data.tsSourceMtimeMs;
     saveState = 'idle';
     saveMessage = '';
+    restoreLayoutFromStorage();
   });
 
   const tsIsDirty = $derived(tsEditorText !== tsBaseText);
@@ -613,6 +668,7 @@
 {:else}
   <section class="h-full overflow-hidden">
     <SplitPane
+      id="ts-main-split"
       type="columns"
       bind:pos={mainSplitPos}
       min="420px"
@@ -851,6 +907,7 @@
       {#snippet b()}
         <aside class="h-full border-l border-slate-800 bg-slate-900/60 p-4">
           <SplitPane
+            id="ts-code-split"
             type="rows"
             bind:pos={codeSplitPos}
             min="220px"

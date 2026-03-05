@@ -2,7 +2,7 @@ import {
   phaseIndexAtTime,
   type Animation,
   type ScenePhase,
-} from '$lib/manim-api';
+} from '$lib/manim';
 import {
   activeCellsFromRow,
   activeColumnsFromRow,
@@ -34,7 +34,7 @@ type BuildDlxnPreviewArgs = {
 };
 
 type DlxnPreview = {
-  scene: import('$lib/manim-api').Scene;
+  scene: import('$lib/manim').Scene;
   phases: ScenePhase[];
   durationSec: number;
   rowByName: Map<string, RowDef>;

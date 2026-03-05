@@ -2,7 +2,7 @@ import {
   MathTex,
   Scene,
   TransformMatchingTex
-} from '$lib/feature-sweep/manim-api';
+} from '$lib/manim';
 
 export function buildTransformMatchingTexScene(): Scene {
   const scene = new Scene(0.9);

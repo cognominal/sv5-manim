@@ -1,4 +1,4 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim-api';
+import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
 
 export function buildRegressionGoldenFramesScene(): Scene {
   const scene = new Scene(0.7);

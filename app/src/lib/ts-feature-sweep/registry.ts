@@ -1,4 +1,4 @@
-import type { Scene } from '$lib/manim-api';
+import type { Scene } from '$lib/manim';
 import {
   buildAxesGraphsPlottingScene
 } from './ts/axesGraphsPlotting';

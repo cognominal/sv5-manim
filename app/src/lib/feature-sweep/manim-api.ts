@@ -1,1 +1,1 @@
-export * from '$lib/manim-api';
+export * from '$lib/manim';

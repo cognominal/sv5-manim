@@ -8,7 +8,7 @@ import {
   Square,
   TitleText,
   UP
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildMobjectsBasicsScene(): Scene {
   const scene = new Scene(1);

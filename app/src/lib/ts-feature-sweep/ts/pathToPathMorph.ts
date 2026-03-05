@@ -4,7 +4,7 @@ import {
   ReplacementTransform,
   Scene,
   TitleText
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildPathToPathMorphScene(): Scene {
   const scene = new Scene(0.9);

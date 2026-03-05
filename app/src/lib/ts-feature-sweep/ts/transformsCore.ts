@@ -5,7 +5,7 @@ import {
   Scene,
   Square,
   TitleText
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildTransformsCoreScene(): Scene {
   const scene = new Scene(0.9);

@@ -5,7 +5,7 @@ import {
   Square,
   TitleText,
   VGroup
-} from '$lib/manim-api';
+} from '$lib/manim';
 
 export function buildGroupsLayersZIndexScene(): Scene {
   const scene = new Scene(0.8);

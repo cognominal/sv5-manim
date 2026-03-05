@@ -5,7 +5,7 @@ import {
   Scene,
   TitleText,
   VGroup
-} from '$lib/feature-sweep/manim-api';
+} from '$lib/manim';
 
 export function buildTextMathTexScene(): Scene {
   const scene = new Scene(0.9);

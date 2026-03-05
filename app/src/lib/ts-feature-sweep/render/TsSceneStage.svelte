@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Mobject, Point } from '$lib/manim-api';
+  import type { Mobject, Point } from '$lib/manim';
 
   type Props = {
     mobjects: Mobject[];
