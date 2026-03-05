@@ -3,6 +3,8 @@ import { basename, resolve } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { findTsScene, findTsScript } from '$lib/ts-feature-sweep/catalog';
 import { scripts } from '$lib/feature-sweep/catalog';
+import { getTsRenderJob, tsRenderJobKey } from
+  '$lib/ts-feature-sweep/render-jobs';
 
 type Lang = 'ts' | 'py';
 type Profile = 'lowres' | 'medres' | 'hires';
@@ -99,6 +101,9 @@ export async function GET({ params, url }) {
     lang === 'ts'
       ? `/ts-mp4/${params.script}/${params.scene}?profile=${profile}`
       : `/py-mp4/${params.script}/${params.scene}?profile=${profile}`;
+  const renderJob = lang === 'ts'
+    ? getTsRenderJob(tsRenderJobKey(params.script, params.scene, profile))
+    : null;
 
   return json({
     lang,
@@ -109,6 +114,10 @@ export async function GET({ params, url }) {
     mp4MtimeMs,
     exists,
     upToDate,
-    playbackUrl
+    playbackUrl,
+    inProgress: Boolean(renderJob?.inProgress),
+    renderError: renderJob?.lastError ?? null,
+    renderStartedAtMs: renderJob?.startedAtMs ?? null,
+    renderFinishedAtMs: renderJob?.finishedAtMs ?? null,
   });
 }

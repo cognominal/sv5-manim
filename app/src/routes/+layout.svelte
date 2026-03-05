@@ -15,7 +15,6 @@
 
   const current = $derived(page.url.pathname);
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
-  const isDlxRoute = $derived(current === '/dlx');
   const isTsSweepRoute = $derived(
     current === '/ts-sweep' || current.startsWith('/ts-scenes/')
   );
@@ -44,12 +43,6 @@
           >
             <a href="/" class="text-sm font-semibold tracking-wide text-cyan-300">
               Feature Sweep
-            </a>
-            <a
-              href="/dlx"
-              class="text-sm font-medium text-slate-300 hover:text-cyan-300"
-            >
-              DLX
             </a>
             <a
               href="/dlxn"
@@ -98,12 +91,6 @@
             Feature Sweep
           </a>
           <a
-            href="/dlx"
-            class="text-sm font-medium text-slate-300 hover:text-cyan-300"
-          >
-            DLX
-          </a>
-          <a
             href="/dlxn"
             class="text-sm font-medium text-slate-300 hover:text-cyan-300"
           >
@@ -117,24 +104,22 @@
           >
             ts sweep
           </a>
-          {#if !isDlxRoute}
-            {#if isTsSweepRoute}
-              <label class="ml-auto flex items-center gap-2 text-sm">
-                <span class="text-slate-300">TS scenes</span>
-                <select
-                  class="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm"
-                  onchange={onTsChange}
-                  value={tsOptions.some((opt) => opt.value === current)
-                    ? current
-                    : ''}
-                >
-                  <option value="">Select TS scene...</option>
-                  {#each tsOptions as option}
-                    <option value={option.value}>{option.label}</option>
-                  {/each}
-                </select>
-              </label>
-            {/if}
+          {#if isTsSweepRoute}
+            <label class="ml-auto flex items-center gap-2 text-sm">
+              <span class="text-slate-300">TS scenes</span>
+              <select
+                class="rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm"
+                onchange={onTsChange}
+                value={tsOptions.some((opt) => opt.value === current)
+                  ? current
+                  : ''}
+              >
+                <option value="">Select TS scene...</option>
+                {#each tsOptions as option}
+                  <option value={option.value}>{option.label}</option>
+                {/each}
+              </select>
+            </label>
           {/if}
         </div>
       </header>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Mobject, Point } from '$lib/feature-sweep/manim-api';
+  import type { Mobject, Point } from '$lib/manim-api';
 
   type Props = {
     mobjects: Mobject[];
@@ -231,6 +231,69 @@
       >
         {mobject.text}
       </text>
+    {:else if mobject.kind === 'kmathtex'}
+      {@const fs = mobject.fontSize ?? 44}
+      {@const texLen = (mobject.tex ?? mobject.text ?? '').length}
+      {@const boxW = Math.max(120, Math.min(760, texLen * fs * 0.62))}
+      {@const boxH = fs * 1.9}
+      <foreignObject
+        id={mobject.id}
+        x={(posX(mobject) ?? 0) - boxW / 2}
+        y={(posY(mobject) ?? 0) - boxH / 2}
+        width={boxW}
+        height={boxH}
+        opacity={drawProgress}
+      >
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          style={`width:${boxW}px;height:${boxH}px;display:flex;` +
+            'align-items:center;justify-content:center;' +
+            `font-size:${fs}px;color:${mobject.fill ?? '#e2e8f0'};`}
+        >
+          {@html mobject.texHtml ?? mobject.text ?? ''}
+        </div>
+      </foreignObject>
+    {:else if mobject.kind === 'mathtex'}
+      {@const w = mobject.texWidth ?? 240}
+      {@const h = mobject.texHeight ?? 80}
+      {@const scale = (mobject.fontSize ?? 44) / 44}
+      {@const drawW = w * scale}
+      {@const drawH = h * scale}
+      {@const useSvg = Boolean(mobject.texSvg) &&
+        !mobject.texSvg?.includes('<text ')}
+      {#if useSvg && mobject.texSvg}
+        <image
+          id={mobject.id}
+          x={(posX(mobject) ?? 0) - drawW / 2}
+          y={(posY(mobject) ?? 0) - drawH / 2}
+          width={drawW}
+          height={drawH}
+          href={`data:image/svg+xml;utf8,${encodeURIComponent(mobject.texSvg)}`}
+          opacity={drawProgress}
+        />
+      {:else}
+        {@const fs = mobject.fontSize ?? 44}
+        {@const texLen = (mobject.tex ?? mobject.text ?? '').length}
+        {@const boxW = Math.max(120, Math.min(760, texLen * fs * 0.62))}
+        {@const boxH = fs * 1.9}
+        <foreignObject
+          id={mobject.id}
+          x={(posX(mobject) ?? 0) - boxW / 2}
+          y={(posY(mobject) ?? 0) - boxH / 2}
+          width={boxW}
+          height={boxH}
+          opacity={drawProgress}
+        >
+          <div
+            xmlns="http://www.w3.org/1999/xhtml"
+            style={`width:${boxW}px;height:${boxH}px;display:flex;` +
+              'align-items:center;justify-content:center;' +
+              `font-size:${fs}px;color:${mobject.fill ?? '#e2e8f0'};`}
+          >
+            {@html mobject.texHtml ?? mobject.text ?? ''}
+          </div>
+        </foreignObject>
+      {/if}
     {:else if mobject.kind === 'square'}
       {@const size = mobject.size ?? 0}
       {@const length = size * 4}

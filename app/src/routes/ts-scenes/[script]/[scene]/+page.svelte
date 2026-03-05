@@ -9,7 +9,7 @@
     type TimelineCommand
   } from '$lib/feature-sweep/core/timeline-controller';
   import { FRAME_STEP_SEC } from '$lib/feature-sweep/time-wrap/core';
-  import type { Point, Scene } from '$lib/feature-sweep/manim-api';
+  import type { Point, Scene } from '$lib/manim-api';
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
   import SplitPane from '$lib/vendor/rich-split-pane/SplitPane.svelte';
   import type { Length } from '$lib/vendor/rich-split-pane/types';
@@ -442,7 +442,10 @@
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ profile }),
+        body: JSON.stringify({
+          profile,
+          async: mp4Lang === 'ts'
+        }),
         signal: controller.signal
       });
 
@@ -453,9 +456,11 @@
 
       if (mp4Lang === 'ts') {
         const result = await response.json() as {
-          path: string;
-          folderPath: string;
-          report: {
+          queued?: boolean;
+          started?: boolean;
+          path?: string;
+          folderPath?: string;
+          report?: {
             durationSec: number;
             width: number;
             height: number;
@@ -463,14 +468,35 @@
             bitrateKbps: number;
             sizeBytes: number;
           };
-          thumbnail: string;
+          thumbnail?: string;
         };
-        exportReport = result;
+        if (result.queued) {
+          exportReport = null;
+          exportMessage = result.started
+            ? `Queued ts ${profile}.`
+            : `TS ${profile} is already rendering.`;
+        } else {
+          exportReport = {
+            path: result.path ?? '',
+            folderPath: result.folderPath ?? '',
+            report: result.report ?? {
+              durationSec: 0,
+              width: 0,
+              height: 0,
+              fps: 0,
+              bitrateKbps: 0,
+              sizeBytes: 0,
+            },
+            thumbnail: result.thumbnail ?? '',
+          };
+        }
       } else {
         await response.json().catch(() => ({}));
       }
       if (token === mp4GenToken) {
-        exportMessage = `Created ${mp4Lang} ${profile}.`;
+        if (mp4Lang !== 'ts') {
+          exportMessage = `Created ${mp4Lang} ${profile}.`;
+        }
         await refreshMp4Status();
       }
     } catch (cause) {

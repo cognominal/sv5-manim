@@ -1,4 +1,12 @@
-import { Circle, Create, Scene, Square, TitleText, Wait } from '$lib/feature-sweep/manim-api';
+import {
+  Circle,
+  Create,
+  Scene,
+  Square,
+  TitleText,
+  VGroup,
+  Wait
+} from '$lib/manim-api';
 
 export function buildGroupsLayersZIndexScene(): Scene {
   const scene = new Scene(0.8);
@@ -20,7 +28,8 @@ export function buildGroupsLayersZIndexScene(): Scene {
     radius: 106,
     stroke: '#F72585'
   });
-  scene.add(title, back, front);
+  const pair = VGroup('pair', back, front);
+  scene.add(title, pair);
   scene.play(Create(title));
   scene.play(Create(back), Create(front));
   scene.play(Wait(800));

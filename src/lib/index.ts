@@ -1,2 +1,2 @@
 export * from './dlx';
-export * from './manim';
+export * from './manim-api';

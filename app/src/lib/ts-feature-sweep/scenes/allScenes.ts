@@ -5,7 +5,7 @@ import {
   Square,
   TitleText,
   Wait
-} from '$lib/feature-sweep/manim-api';
+} from '$lib/manim-api';
 
 type SquareNode = {
   id: string;

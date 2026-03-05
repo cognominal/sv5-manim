@@ -1,4 +1,4 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/feature-sweep/manim-api';
+import { Circle, Create, Scene, Square, TitleText } from '$lib/manim-api';
 
 export function buildOpenGLParityScene(): Scene {
   const scene = new Scene(0.7);

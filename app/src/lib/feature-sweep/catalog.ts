@@ -128,6 +128,30 @@ export const scripts: ScriptEntry[] = [
         description: 'ReplacementTransform between two vector paths.'
       }
     ]
+  },
+  {
+    id: 'positioning_primitives',
+    title: '17 Positioning Primitives',
+    file: 'py/17_positioning_primitives.py',
+    scenes: [
+      {
+        id: 'positioning_primitives',
+        title: 'Positioning Primitives',
+        description: 'Direction vectors and positioning helper methods.'
+      }
+    ]
+  },
+  {
+    id: 'transform_matching_tex',
+    title: '18 TransformMatchingTex',
+    file: 'py/18_transform_matching_tex.py',
+    scenes: [
+      {
+        id: 'euler_rearrange',
+        title: 'Euler Rearrange',
+        description: 'TransformMatchingTex from e^{i\\pi}+1=0 to e^{i\\pi}=-1.'
+      }
+    ]
   }
 ];
 

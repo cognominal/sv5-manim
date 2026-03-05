@@ -1,3 +1,4 @@
 @import 'tailwindcss';
+@import 'katex/dist/katex.min.css';
 @import './lib/theme/tokens.css';
 @import './lib/theme/base.css';

@@ -12,7 +12,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'bun run build && bun run preview --host 127.0.0.1 --port 4273',
+    command: 'bun run build && env -u FORCE_COLOR -u NO_COLOR bun run preview --host 127.0.0.1 --port 4273',
     url: 'http://127.0.0.1:4273',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

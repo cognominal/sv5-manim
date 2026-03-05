@@ -1,4 +1,4 @@
-import type { Scene } from '$lib/feature-sweep/manim-api';
+import type { Scene } from '$lib/manim-api';
 import {
   buildAxesGraphsPlottingScene
 } from './ts/axesGraphsPlotting';
@@ -11,11 +11,13 @@ import { buildLightingShading3DScene } from './ts/lightingShading3d';
 import { buildMobjectsBasicsScene } from './ts/mobjectsBasics';
 import { buildOpenGLParityScene } from './ts/openGlParity';
 import { buildPathToPathMorphScene } from './ts/pathToPathMorph';
+import { buildPositioningPrimitivesScene } from './ts/positioningPrimitives';
 import { buildPathsMorphsScene } from './ts/pathsMorphs';
 import { buildRateFunctionsTimingScene } from './ts/rateFunctionsTiming';
 import { buildRegressionGoldenFramesScene } from './ts/regressionGoldenFrames';
 import { buildSceneSectionsVoiceoverScene } from './ts/sceneSectionsVoiceover';
 import { buildTextMathTexScene } from './ts/textMathTex';
+import { buildTransformMatchingTexScene } from './ts/transformMatchingTex';
 import { buildTransformsCoreScene } from './ts/transformsCore';
 import { buildUpdatersAlwaysRedrawScene } from './ts/updatersAlwaysRedraw';
 
@@ -38,7 +40,12 @@ const registry = new Map<string, TsSceneBuilder>([
   ['open_gl_vs_cairo_parity:cairo_parity', buildCairoParityScene],
   ['export_profiles:profile_sample', buildExportProfilesScene],
   ['regression_golden_frames:golden_seed', buildRegressionGoldenFramesScene],
-  ['path_to_path_morphing:path_to_path', buildPathToPathMorphScene]
+  ['path_to_path_morphing:path_to_path', buildPathToPathMorphScene],
+  [
+    'positioning_primitives:positioning_primitives',
+    buildPositioningPrimitivesScene
+  ],
+  ['transform_matching_tex:euler_rearrange', buildTransformMatchingTexScene]
 ]);
 
 export function sceneBuilderFor(

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Scene } from '../../manim';
+  import type { Scene } from '../../manim-api';
 
   type Props = {
     scene: Scene;

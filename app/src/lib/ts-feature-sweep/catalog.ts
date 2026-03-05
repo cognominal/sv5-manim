@@ -208,6 +208,30 @@ export const tsScripts: TsScriptEntry[] = [
         description: 'ReplacementTransform between two SVG-like paths.'
       }
     ]
+  },
+  {
+    id: 'positioning_primitives',
+    title: '17 Positioning Primitives',
+    source: 'app/src/lib/ts-feature-sweep/ts/positioningPrimitives.ts',
+    scenes: [
+      {
+        id: 'positioning_primitives',
+        title: 'Positioning Primitives',
+        description: 'Direction vectors and positioning helper methods.'
+      }
+    ]
+  },
+  {
+    id: 'transform_matching_tex',
+    title: '18 TransformMatchingTex',
+    source: 'app/src/lib/ts-feature-sweep/ts/transformMatchingTex.ts',
+    scenes: [
+      {
+        id: 'euler_rearrange',
+        title: 'Euler Rearrange',
+        description: 'Match and transform equation tokens between MathTex forms.'
+      }
+    ]
   }
 ];
 

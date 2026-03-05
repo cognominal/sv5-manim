@@ -7,6 +7,8 @@
 - Pages/components should stay at or under 300 lines when practical.
 - Use Tailwind CSS for new UI components unless a file already follows a
   different established style.
+- Keep `manim-api.ts` aligned with Manim Community Edition conventions and
+  behavior whenever adding or changing primitives/animation APIs.
 
 ## Svelte 5 directives
 
@@ -25,6 +27,8 @@
 - Run `bun run check` after Svelte/TypeScript changes.
 - If tests are present, run the project test command before finishing.
 - Fix warnings rather than deferring them.
+- When a `.ts` scene is changed, regenerate/update its corresponding `.mp4`
+  output before finishing.
 
 ## Generated artifacts
 

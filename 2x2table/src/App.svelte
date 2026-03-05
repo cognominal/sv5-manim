@@ -9,7 +9,7 @@
     type Cell,
     type Column,
   } from '@shared/dlx';
-  import { Create, Rect, Scene } from '@shared/manim';
+  import { Create, Rect, Scene } from '@shared/manim-api';
   import MatrixTableSvg from '@shared/renderers/svg/MatrixTableSvg.svelte';
   import SceneSvg from '@shared/renderers/svg/SceneSvg.svelte';
 

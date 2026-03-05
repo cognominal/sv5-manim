@@ -1,13 +1,44 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/feature-sweep/manim-api';
+import {
+  Create,
+  Dot,
+  Line,
+  MoveAlongPath,
+  Scene
+} from '$lib/manim-api';
 
 export function buildUpdatersAlwaysRedrawScene(): Scene {
   const scene = new Scene(1);
-  const title = TitleText('title', { x: 400, y: 72, value: 'Updaters and Always Redraw', fontSize: 34 });
-  const base = Square('square_base', { x: 320, y: 266, size: 130, stroke: '#14b8a6' });
-  const follower = Square('square_follow', { x: 392, y: 216, size: 72, stroke: '#2dd4bf' });
-  const tracker = Circle('circle_tracker', { x: 540, y: 246, radius: 54, stroke: '#a78bfa' });
-  scene.add(title, base, follower, tracker);
-  scene.play(Create(title));
-  scene.play(Create(base), Create(follower), Create(tracker));
+  const baseline = Line([-3, 0, 0], [3, 0, 0], {
+    id: 'baseline',
+    color: '#999',
+    strokeWidth: 6
+  });
+  const moving = Dot('moving', {
+    x: 160,
+    y: 240,
+    color: '#F72585'
+  });
+  const tether = Line([0, 0, 0], [-3, 0, 0], {
+    id: 'tether',
+    color: '#4CC9F0',
+    strokeWidth: 6
+  });
+  const track = Line([-3, 0, 0], [3, 0, 0], {
+    id: 'track',
+    color: '#00000000',
+    strokeWidth: 1
+  });
+  const tetherEnd = Line([0, 0, 0], [3, 0, 0], {
+    id: 'tether_end',
+    color: '#4CC9F0',
+    strokeWidth: 6
+  });
+
+  scene.add(baseline, tether, moving, track, tetherEnd);
+  scene.play(Create(baseline), Create(tether), Create(moving));
+  scene.play(
+    MoveAlongPath(moving, track, { runTime: 2 }),
+    tether.animate?.become(tetherEnd, { runTime: 2 }) ?? Create(tetherEnd)
+  );
   return scene;
 }

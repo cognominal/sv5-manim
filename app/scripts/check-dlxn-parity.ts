@@ -7,7 +7,7 @@ import {
   Wait,
   sceneDurationSec,
   scenePhases,
-} from '../src/lib/feature-sweep/manim-api';
+} from '../src/lib/manim-api';
 import { buildDlxnPreview } from '../src/lib/dlxn/adapter';
 import {
   threeByTwoThreeTilesRows,

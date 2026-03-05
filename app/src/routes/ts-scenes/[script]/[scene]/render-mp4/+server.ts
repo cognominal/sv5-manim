@@ -6,6 +6,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { findTsScene, findTsScript } from '$lib/ts-feature-sweep/catalog';
+import { startTsRenderJob, tsRenderJobKey } from
+  '$lib/ts-feature-sweep/render-jobs';
 
 const execFileAsync = promisify(execFile);
 
@@ -141,22 +143,20 @@ async function thumbnailDataUrl(
   return `data:image/png;base64,${bytes.toString('base64')}`;
 }
 
-export async function POST({ params, request }) {
-  const script = findTsScript(params.script);
-  const scene = findTsScene(params.script, params.scene);
-  if (!script || !scene) {
-    throw error(404, 'Unknown TS script/scene');
-  }
-
-  const body = await request.json().catch(() => ({}));
-  const profile = body.profile as ExportProfile;
-  if (!profile || !(profile in PROFILE_SPECS)) {
-    throw error(400, 'Invalid export profile');
-  }
-
+async function renderTsMp4(
+  scriptId: string,
+  sceneId: string,
+  profile: ExportProfile,
+  requestUrl: string
+): Promise<{
+  path: string;
+  folderPath: string;
+  report: ExportReport;
+  thumbnail: string;
+}> {
   const spec = PROFILE_SPECS[profile];
   const repoRoot = repoRootFromCwd(process.cwd());
-  const outPath = outputPath(repoRoot, params.script, params.scene, profile);
+  const outPath = outputPath(repoRoot, scriptId, sceneId, profile);
   await mkdir(dirname(outPath), { recursive: true });
 
   const tempDir = await mkdtemp(join(tmpdir(), 'dlx-ts-sweep-video-'));
@@ -172,12 +172,18 @@ export async function POST({ params, request }) {
     });
 
     const page = await context.newPage();
-    const sourceUrl = new URL(request.url);
+    const sourceUrl = new URL(requestUrl);
     const targetUrl =
-      `${sourceUrl.origin}/ts-scenes/${params.script}/${params.scene}` +
+      `${sourceUrl.origin}/ts-scenes/${scriptId}/${sceneId}` +
       '?capture=1';
 
-    await page.goto(targetUrl, { waitUntil: 'networkidle' });
+    await page.goto(targetUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: 120_000,
+    });
+    await page.waitForSelector('svg[aria-label="TS scene stage"]', {
+      timeout: 30_000,
+    });
     await page.waitForTimeout(spec.seconds * 1000);
 
     const video = page.video();
@@ -194,17 +200,52 @@ export async function POST({ params, request }) {
     const thumbPath = outPath.replace(/\.mp4$/, '.thumb.png');
     const seek = Math.max(0, Math.min(report.durationSec * 0.5, 2));
     const thumbnail = await thumbnailDataUrl(outPath, thumbPath, seek);
-    return json({
+    return {
       path: outPath,
       folderPath: dirname(outPath),
       report,
       thumbnail
-    });
+    };
   } catch (cause) {
     console.error('ts sweep mp4 export failed', cause);
-    throw error(500, 'TS sweep MP4 export failed.');
+    throw new Error('TS sweep MP4 export failed.');
   } finally {
     await browser.close().catch(() => undefined);
     await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+export async function POST({ params, request }) {
+  const script = findTsScript(params.script);
+  const scene = findTsScene(params.script, params.scene);
+  if (!script || !scene) {
+    throw error(404, 'Unknown TS script/scene');
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const profile = body.profile as ExportProfile;
+  if (!profile || !(profile in PROFILE_SPECS)) {
+    throw error(400, 'Invalid export profile');
+  }
+  const runAsync = body.async !== false;
+
+  if (runAsync) {
+    const key = tsRenderJobKey(params.script, params.scene, profile);
+    const { started } = startTsRenderJob(key, async () => {
+      await renderTsMp4(params.script, params.scene, profile, request.url);
+    });
+    return json({
+      queued: true,
+      started,
+      key,
+    }, { status: 202 });
+  }
+
+  const result = await renderTsMp4(
+    params.script,
+    params.scene,
+    profile,
+    request.url
+  );
+  return json(result);
 }

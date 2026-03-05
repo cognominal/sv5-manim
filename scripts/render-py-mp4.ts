@@ -31,7 +31,8 @@ const SCENE_CLASS_BY_KEY: Record<string, string> = {
   'open_gl_vs_cairo_parity:cairo_parity': 'CairoParity',
   'export_profiles:profile_sample': 'ExportProfiles',
   'regression_golden_frames:golden_seed': 'RegressionGoldenFrames',
-  'path_to_path_morphing:path_to_path': 'PathToPathMorphing'
+  'path_to_path_morphing:path_to_path': 'PathToPathMorphing',
+  'transform_matching_tex:euler_rearrange': 'TransformMatchingTexDemo'
 };
 
 const QUALITY_FLAG_BY_PROFILE: Record<Profile, string> = {

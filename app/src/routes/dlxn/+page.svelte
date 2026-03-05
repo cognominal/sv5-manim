@@ -6,7 +6,7 @@
     type Mode,
     type TimelineCommand
   } from '$lib/feature-sweep/core/timeline-controller';
-  import { scenePhases } from '$lib/feature-sweep/manim-api';
+  import { scenePhases } from '$lib/manim-api';
   import {
     hasOne,
     threeByTwoThreeTilesColumns,
