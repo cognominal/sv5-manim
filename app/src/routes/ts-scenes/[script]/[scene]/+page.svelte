@@ -102,6 +102,15 @@
   const progressById = $derived.by(() => {
     if (!scene) return new Map<string, number>();
     const byId = new Map<string, number>();
+    const introKinds = new Set(['create', 'fadeIn']);
+    const introTargets = new Set(
+      scene.timeline
+        .filter((step) => step.targetId && introKinds.has(step.kind))
+        .map((step) => step.targetId as string)
+    );
+    for (const mobject of flattenSceneMobjects(scene.mobjects)) {
+      byId.set(mobject.id, introTargets.has(mobject.id) ? 0 : (mobject.opacity ?? 1));
+    }
     const stepsByPhase = scene.timeline.reduce((phases, step) => {
       const group = phases.get(step.phase) ?? [];
       group.push(step);
@@ -124,6 +133,9 @@
         if (step.kind === 'create' || step.kind === 'fadeIn') {
           const previous = byId.get(step.targetId) ?? 0;
           byId.set(step.targetId, Math.max(previous, stepProgress));
+        } else if (step.kind === 'fadeOut') {
+          const previous = byId.get(step.targetId) ?? 1;
+          byId.set(step.targetId, Math.max(0, previous * (1 - stepProgress)));
         } else if (step.kind === 'moveAlongPath' && intrinsicTimeSec >= phaseStart) {
           byId.set(step.targetId, 1);
         }
@@ -239,19 +251,34 @@
       );
       for (const step of steps) {
         if (
-          step.kind !== 'moveAlongPath' ||
-          !step.targetId ||
-          !step.pathId
+          step.kind === 'moveAlongPath' &&
+          step.targetId &&
+          step.pathId
         ) {
+          const target = byId.get(step.targetId);
+          const path = byId.get(step.pathId);
+          if (!target || !path?.points || path.points.length < 2) continue;
+          const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
+          const stepProgress = Math.max(0, Math.min(1, raw));
+          const at = pointAlongPath(path.points, stepProgress);
+          positions.set(target.id, at);
           continue;
         }
-        const target = byId.get(step.targetId);
-        const path = byId.get(step.pathId);
-        if (!target || !path?.points || path.points.length < 2) continue;
+        if (step.kind !== 'transform' || !step.targetId) continue;
         const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
         const stepProgress = Math.max(0, Math.min(1, raw));
-        const at = pointAlongPath(path.points, stepProgress);
-        positions.set(target.id, at);
+        const meta = step.meta;
+        if (
+          typeof meta?.xStart === 'number' &&
+          typeof meta?.xEnd === 'number' &&
+          typeof meta?.yStart === 'number' &&
+          typeof meta?.yEnd === 'number'
+        ) {
+          positions.set(step.targetId, {
+            x: meta.xStart + (meta.xEnd - meta.xStart) * stepProgress,
+            y: meta.yStart + (meta.yEnd - meta.yStart) * stepProgress,
+          });
+        }
       }
       phaseStart += phaseDuration;
     }
@@ -281,7 +308,8 @@
       );
 
       for (const step of steps) {
-        if (step.kind !== 'fadeIn' || !step.targetId) continue;
+        if (step.kind !== 'fadeIn' && step.kind !== 'transform') continue;
+        if (!step.targetId) continue;
         const mobject = byId.get(step.targetId);
         if (!mobject) continue;
         const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
@@ -292,18 +320,20 @@
         let startX = endX;
         let startY = endY;
 
-        if (
-          typeof meta?.fadeInTargetX === 'number' &&
-          typeof meta?.fadeInTargetY === 'number'
-        ) {
-          startX = meta.fadeInTargetX;
-          startY = meta.fadeInTargetY;
-        }
-        if (typeof meta?.fadeInShiftX === 'number') {
-          startX += meta.fadeInShiftX;
-        }
-        if (typeof meta?.fadeInShiftY === 'number') {
-          startY += meta.fadeInShiftY;
+        if (step.kind === 'fadeIn') {
+          if (
+            typeof meta?.fadeInTargetX === 'number' &&
+            typeof meta?.fadeInTargetY === 'number'
+          ) {
+            startX = meta.fadeInTargetX;
+            startY = meta.fadeInTargetY;
+          }
+          if (typeof meta?.fadeInShiftX === 'number') {
+            startX += meta.fadeInShiftX;
+          }
+          if (typeof meta?.fadeInShiftY === 'number') {
+            startY += meta.fadeInShiftY;
+          }
         }
 
         positions.set(step.targetId, {
@@ -313,8 +343,11 @@
 
         const startScale = typeof meta?.fadeInScale === 'number'
           ? meta.fadeInScale
-          : 1;
-        scales.set(step.targetId, startScale + (1 - startScale) * progress);
+          : typeof meta?.scaleStart === 'number'
+            ? meta.scaleStart
+            : 1;
+        const endScale = typeof meta?.scaleEnd === 'number' ? meta.scaleEnd : 1;
+        scales.set(step.targetId, startScale + (endScale - startScale) * progress);
       }
 
       phaseStart += phaseDuration;

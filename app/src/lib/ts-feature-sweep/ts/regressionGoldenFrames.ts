@@ -1,14 +1,27 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
+import { Dot, Scene } from '$lib/manim';
 
 export function buildRegressionGoldenFramesScene(): Scene {
   const scene = new Scene(0.7);
-  const title = TitleText('title', { x: 400, y: 72, value: 'Regression Golden Frames', fontSize: 34 });
-  const seed = Square('square_seed', { x: 286, y: 280, size: 118, stroke: '#a3e635' });
-  const c1 = Circle('circle_seed_1', { x: 500, y: 220, radius: 28, stroke: '#f472b6' });
-  const c2 = Circle('circle_seed_2', { x: 564, y: 274, radius: 42, stroke: '#ec4899' });
-  const c3 = Circle('circle_seed_3', { x: 644, y: 334, radius: 52, stroke: '#db2777' });
-  scene.add(title, seed, c1, c2, c3);
-  scene.play(Create(title));
-  scene.play(Create(seed), Create(c1), Create(c2), Create(c3));
+  const values = [
+    [0.892842952595291, -1.7099609401345222],
+    [-1.4398029508591112, -0.9964311585495115],
+    [1.5134158105333183, 0.6361181547224804],
+    [2.509190244845841, -1.4870197969352417],
+    [-0.4996692861446032, -1.6927303079409517],
+    [-1.8006901265292457, 0.019295350388068914],
+    [-3.030176652247619, -1.084186619373646],
+    [0.9597784221975672, 0.1615670011862527],
+    [-1.7890515034482077, 0.32122221584328124],
+    [1.9803010756398918, -1.7766047890909227],
+    [1.9563520159641366, 0.7127709446722106],
+    [-1.0222405039279327, -1.2402830545773031],
+  ];
+  values.forEach(([x, y], index) => {
+    scene.add(Dot(`dot_${index}`, [x, y, 0], {
+      radius: 4.8,
+      color: '#F9C74F'
+    }));
+  });
+  scene.wait(0.4);
   return scene;
 }

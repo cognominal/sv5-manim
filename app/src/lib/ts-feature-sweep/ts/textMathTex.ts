@@ -3,14 +3,14 @@ import {
   FadeIn,
   MathTex,
   Scene,
-  TitleText,
+  Text,
   VGroup
 } from '$lib/manim';
 
 export function buildTextMathTexScene(): Scene {
   const scene = new Scene(0.9);
-  const title = TitleText('title', {
-    value: 'Text and MathTex',
+  const title = Text('Text and MathTex', {
+    id: 'title',
     fontSize: 36
   });
   const formula = MathTex('formula', String.raw`e^{i\pi}+1=0`, {
@@ -21,7 +21,7 @@ export function buildTextMathTexScene(): Scene {
   group.arrange!(DOWN, 0.7);
 
   scene.add(group);
-  scene.play(FadeIn(title), FadeIn(formula));
+  scene.play(FadeIn(group));
   scene.wait(0.7);
   return scene;
 }

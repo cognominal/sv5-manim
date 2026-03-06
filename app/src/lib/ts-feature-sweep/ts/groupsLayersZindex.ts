@@ -1,20 +1,12 @@
 import {
   Circle,
-  Create,
   Scene,
   Square,
-  TitleText,
   VGroup
 } from '$lib/manim';
 
 export function buildGroupsLayersZIndexScene(): Scene {
   const scene = new Scene(0.8);
-  const title = TitleText('title', {
-    x: 400,
-    y: 72,
-    value: 'Groups Layers and Z-Index',
-    fontSize: 40
-  });
   const back = Square('square_back', {
     x: 400,
     y: 262,
@@ -28,9 +20,9 @@ export function buildGroupsLayersZIndexScene(): Scene {
     stroke: '#F72585'
   });
   const pair = VGroup('pair', back, front);
-  scene.add(title, pair);
-  scene.play(Create(title));
-  scene.play(Create(back), Create(front));
+  back.set_z_index?.(0);
+  front.set_z_index?.(2);
+  scene.add(pair);
   scene.wait(0.8);
   return scene;
 }

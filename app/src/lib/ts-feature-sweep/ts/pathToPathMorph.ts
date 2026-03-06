@@ -3,17 +3,15 @@ import {
   Path,
   ReplacementTransform,
   Scene,
-  TitleText
+  Text
 } from '$lib/manim';
 
 export function buildPathToPathMorphScene(): Scene {
   const scene = new Scene(0.9);
-  const title = TitleText('title', {
-    x: 400,
-    y: 74,
-    value: 'Path to Path Morph',
+  const title = Text('Path to Path Morph', {
+    id: 'title',
     fontSize: 40
-  });
+  }).toEdge!([0, 0.9, 0], 0);
 
   const zig = Path('zig_path', {
     stroke: '#4CC9F0',
@@ -42,9 +40,10 @@ export function buildPathToPathMorphScene(): Scene {
     closed: true
   });
 
+  loop.set_opacity?.(0);
   scene.add(title, zig, loop);
-  scene.play(Create(title));
   scene.play(Create(zig));
   scene.play(ReplacementTransform(zig, loop, { runTime: 1.3 }));
+  scene.wait(0.8);
   return scene;
 }

@@ -1,10 +1,16 @@
 export type MobjectKind =
   'square' | 'circle' | 'text' | 'path' | 'dot' |
-  'mathtex' | 'kmathtex' | 'group';
+  'mathtex' | 'kmathtex' | 'group' | 'svg';
 
 export type Point = { x: number; y: number };
 type Color = string;
 type PointLike = Point | [number, number, number?];
+type Updater = (mobject: Mobject) => Mobject | void;
+type AnimationOpts = {
+  runTime?: number;
+  rateFunc?: string;
+  rate_func?: string;
+};
 
 export type Mobject = {
   id: string;
@@ -24,24 +30,67 @@ export type Mobject = {
   texWidth?: number;
   texHeight?: number;
   fontSize?: number;
+  rotation?: number;
+  scaleFactor?: number;
+  stretchX?: number;
+  stretchY?: number;
+  zIndex?: number;
+  svgHref?: string;
   points?: Point[];
   closed?: boolean;
   children?: Mobject[];
   token?: string;
-  animate?: {
-    become: (
-      target: Mobject,
-      opts?: { runTime?: number }
-    ) => Omit<Animation, 'runTime' | 'phase'> & { runTime?: number };
-    moveAlongPath: (
-      path: Mobject,
-      opts?: { runTime?: number }
-    ) => Omit<Animation, 'runTime' | 'phase'> & { runTime?: number };
-  };
+  updaters?: Updater[];
+  savedState?: Partial<Mobject>;
+  target?: Mobject;
+  animate?: AnimateBuilder;
   become?: (target: Mobject) => Mobject;
   moveTo?: (target: PointLike | Mobject) => Mobject;
   move_to?: (target: PointLike | Mobject) => Mobject;
   shift?: (delta: PointLike) => Mobject;
+  scale?: (factor: number) => Mobject;
+  rotate?: (angle: number) => Mobject;
+  stretch?: (factor: number, dim?: number) => Mobject;
+  flip?: (axis?: PointLike) => Mobject;
+  copy?: (id?: string) => Mobject;
+  setColor?: (color: Color) => Mobject;
+  set_color?: (color: Color) => Mobject;
+  setFill?: (fill: Color, opacity?: number) => Mobject;
+  set_fill?: (fill: Color, opacity?: number) => Mobject;
+  setStroke?: (stroke: Color, width?: number, opacity?: number) => Mobject;
+  set_stroke?: (stroke: Color, width?: number, opacity?: number) => Mobject;
+  setOpacity?: (opacity: number) => Mobject;
+  set_opacity?: (opacity: number) => Mobject;
+  setZIndex?: (zIndex: number) => Mobject;
+  set_z_index?: (zIndex: number) => Mobject;
+  matchColor?: (target: Mobject) => Mobject;
+  match_color?: (target: Mobject) => Mobject;
+  matchFill?: (target: Mobject) => Mobject;
+  match_fill?: (target: Mobject) => Mobject;
+  matchStroke?: (target: Mobject) => Mobject;
+  match_stroke?: (target: Mobject) => Mobject;
+  matchOpacity?: (target: Mobject) => Mobject;
+  match_opacity?: (target: Mobject) => Mobject;
+  surround?: (target: Mobject, buff?: number) => Mobject;
+  generateTarget?: () => Mobject;
+  generate_target?: () => Mobject;
+  saveState?: () => Mobject;
+  save_state?: () => Mobject;
+  restore?: () => Mobject;
+  add?: (...children: Mobject[]) => Mobject;
+  remove?: (...children: Mobject[]) => Mobject;
+  addUpdater?: (updater: Updater) => Mobject;
+  add_updater?: (updater: Updater) => Mobject;
+  removeUpdater?: (updater: Updater) => Mobject;
+  remove_updater?: (updater: Updater) => Mobject;
+  clearUpdaters?: () => Mobject;
+  clear_updaters?: () => Mobject;
+  get?: (index: number) => Mobject | undefined;
+  slice?: (start?: number, end?: number) => Mobject[];
+  setX?: (x: number) => Mobject;
+  set_x?: (x: number) => Mobject;
+  setY?: (y: number) => Mobject;
+  set_y?: (y: number) => Mobject;
   nextTo?: (target: Mobject, direction?: PointLike, buff?: number) => Mobject;
   next_to?: (target: Mobject, direction?: PointLike, buff?: number) => Mobject;
   toEdge?: (direction: PointLike, buff?: number) => Mobject;
@@ -53,6 +102,29 @@ export type Mobject = {
   arrange?: (direction?: PointLike, buff?: number) => Mobject;
   getCenter?: () => Point;
   get_center?: () => Point;
+  plot?: (
+    fn: (x: number) => number,
+    opts?: { id?: string; color?: Color; strokeWidth?: number; samples?: number }
+  ) => Mobject;
+};
+
+type AnimateBuilder = {
+  become: (target: Mobject, opts?: AnimationOpts) => PendingAnimation;
+  moveAlongPath: (path: Mobject, opts?: AnimationOpts) => PendingAnimation;
+  shift: (delta: PointLike, opts?: AnimationOpts) => PendingAnimation;
+  moveTo: (
+    target: PointLike | Mobject,
+    opts?: AnimationOpts
+  ) => PendingAnimation;
+  move_to: (
+    target: PointLike | Mobject,
+    opts?: AnimationOpts
+  ) => PendingAnimation;
+  scale: (factor: number, opts?: AnimationOpts) => PendingAnimation;
+  setOpacity: (opacity: number, opts?: AnimationOpts) => PendingAnimation;
+  set_opacity: (opacity: number, opts?: AnimationOpts) => PendingAnimation;
+  setValue: (value: number, opts?: AnimationOpts) => PendingAnimation;
+  set_value: (value: number, opts?: AnimationOpts) => PendingAnimation;
 };
 
 export type Animation = {
@@ -62,7 +134,9 @@ export type Animation = {
     | 'wait'
     | 'replacementTransform'
     | 'fadeOut'
-    | 'moveAlongPath';
+    | 'moveAlongPath'
+    | 'transform'
+    | 'value';
   targetId?: string;
   sourceId?: string;
   pathId?: string;
@@ -84,6 +158,8 @@ export class Scene {
   private defaultCreateSec: number;
   private phase = 0;
   mobjects: Mobject[] = [];
+  foregroundMobjects: Mobject[] = [];
+  sections: string[] = [];
   timeline: Animation[] = [];
 
   constructor(defaultCreateSec = 0.8) {
@@ -92,6 +168,69 @@ export class Scene {
 
   add(...mobjects: Mobject[]): void {
     this.mobjects.push(...mobjects);
+  }
+
+  remove(...mobjects: Mobject[]): void {
+    const removeIds = new Set(flattenMobjects(mobjects).map((mobject) => mobject.id));
+    this.mobjects = this.mobjects.filter((mobject) => !removeIds.has(mobject.id));
+    this.foregroundMobjects = this.foregroundMobjects.filter(
+      (mobject) => !removeIds.has(mobject.id)
+    );
+  }
+
+  clear(): void {
+    this.mobjects = [];
+    this.foregroundMobjects = [];
+  }
+
+  replace(oldMobject: Mobject, newMobject: Mobject): void {
+    this.mobjects = this.mobjects.map((mobject) =>
+      mobject.id === oldMobject.id ? newMobject : mobject
+    );
+    this.foregroundMobjects = this.foregroundMobjects.map((mobject) =>
+      mobject.id === oldMobject.id ? newMobject : mobject
+    );
+  }
+
+  bringToFront(...mobjects: Mobject[]): void {
+    const bringIds = new Set(flattenMobjects(mobjects).map((mobject) => mobject.id));
+    const moved = this.mobjects.filter((mobject) => bringIds.has(mobject.id));
+    this.mobjects = this.mobjects.filter((mobject) => !bringIds.has(mobject.id));
+    this.mobjects.push(...moved);
+  }
+
+  bring_to_front(...mobjects: Mobject[]): void {
+    this.bringToFront(...mobjects);
+  }
+
+  bringToBack(...mobjects: Mobject[]): void {
+    const bringIds = new Set(flattenMobjects(mobjects).map((mobject) => mobject.id));
+    const moved = this.mobjects.filter((mobject) => bringIds.has(mobject.id));
+    this.mobjects = this.mobjects.filter((mobject) => !bringIds.has(mobject.id));
+    this.mobjects.unshift(...moved);
+  }
+
+  bring_to_back(...mobjects: Mobject[]): void {
+    this.bringToBack(...mobjects);
+  }
+
+  addForegroundMobject(...mobjects: Mobject[]): void {
+    this.foregroundMobjects.push(...mobjects);
+  }
+
+  add_foreground_mobject(...mobjects: Mobject[]): void {
+    this.addForegroundMobject(...mobjects);
+  }
+
+  removeForegroundMobject(...mobjects: Mobject[]): void {
+    const ids = new Set(flattenMobjects(mobjects).map((mobject) => mobject.id));
+    this.foregroundMobjects = this.foregroundMobjects.filter(
+      (mobject) => !ids.has(mobject.id)
+    );
+  }
+
+  remove_foreground_mobject(...mobjects: Mobject[]): void {
+    this.removeForegroundMobject(...mobjects);
   }
 
   play(...animations: Array<
@@ -112,6 +251,85 @@ export class Scene {
 
   wait(runTime: number): void {
     this.play(Wait(runTime));
+  }
+
+  waitUntil(_predicate: () => boolean, maxTime = this.defaultCreateSec): void {
+    this.wait(maxTime);
+  }
+
+  wait_until(predicate: () => boolean, maxTime?: number): void {
+    this.waitUntil(predicate, maxTime);
+  }
+
+  pause(runTime = this.defaultCreateSec): void {
+    this.wait(runTime);
+  }
+
+  nextSection(name: string): void {
+    this.sections.push(name);
+  }
+
+  next_section(name: string): void {
+    this.nextSection(name);
+  }
+
+  construct(): void {}
+
+  render(): Scene {
+    return this;
+  }
+}
+
+export class ValueTracker {
+  value: number;
+  animate: AnimateBuilder;
+
+  constructor(value: number) {
+    this.value = value;
+    this.animate = {
+      become: () => Wait(0),
+      moveAlongPath: () => Wait(0),
+      shift: () => Wait(0),
+      moveTo: () => Wait(0),
+      move_to: () => Wait(0),
+      scale: () => Wait(0),
+      setOpacity: () => Wait(0),
+      set_opacity: () => Wait(0),
+      setValue: (value: number, opts?: AnimationOpts) =>
+        this.setValueAnimation(value, opts),
+      set_value: (value: number, opts?: AnimationOpts) =>
+        this.setValueAnimation(value, opts),
+    };
+  }
+
+  getValue(): number {
+    return this.value;
+  }
+
+  get_value(): number {
+    return this.getValue();
+  }
+
+  setValue(value: number): ValueTracker {
+    this.value = value;
+    return this;
+  }
+
+  set_value(value: number): ValueTracker {
+    return this.setValue(value);
+  }
+
+  private setValueAnimation(value: number, opts?: AnimationOpts): PendingAnimation {
+    const start = this.value;
+    this.value = value;
+    return {
+      kind: 'value',
+      runTime: opts?.runTime,
+      meta: {
+        valueStart: start,
+        valueEnd: value,
+      },
+    };
   }
 }
 
@@ -254,6 +472,75 @@ function translateMobject(mobject: Mobject, dxPx: number, dyPx: number): void {
   mobject.y = getMobjectY(mobject) + dyPx;
 }
 
+function cloneMobject(mobject: Mobject, forcedId?: string): Mobject {
+  const clone: Mobject = {
+    ...mobject,
+    id: forcedId ?? autoId(mobject.kind),
+    points: mobject.points?.map((point) => ({ ...point })),
+    children: mobject.children?.map((child) => cloneMobject(child)),
+    updaters: mobject.updaters ? [...mobject.updaters] : [],
+    savedState: mobject.savedState ? { ...mobject.savedState } : undefined,
+    target: undefined,
+    animate: undefined,
+  };
+  return attachMobjectApi(clone);
+}
+
+function snapshotMeta(mobject: Mobject): Animation['meta'] {
+  const meta: Animation['meta'] = {
+    xStart: getMobjectX(mobject),
+    yStart: getMobjectY(mobject),
+    opacityStart: mobject.opacity ?? 1,
+    scaleStart: mobject.scaleFactor ?? 1,
+    rotationStart: mobject.rotation ?? 0,
+    zIndexStart: mobject.zIndex ?? 0,
+  };
+  if (mobject.kind === 'square') {
+    meta.sizeStart = mobject.size ?? 0;
+  }
+  if (mobject.kind === 'circle' || mobject.kind === 'dot') {
+    meta.radiusStart = mobject.radius ?? 0;
+  }
+  if (mobject.points) {
+    meta.pointsStart = JSON.stringify(mobject.points);
+  }
+  if (mobject.stroke) meta.strokeStart = mobject.stroke;
+  if (mobject.fill) meta.fillStart = mobject.fill;
+  return meta;
+}
+
+function finalizeMeta(meta: Animation['meta'], mobject: Mobject): Animation['meta'] {
+  return {
+    ...meta,
+    xEnd: getMobjectX(mobject),
+    yEnd: getMobjectY(mobject),
+    opacityEnd: mobject.opacity ?? 1,
+    scaleEnd: mobject.scaleFactor ?? 1,
+    rotationEnd: mobject.rotation ?? 0,
+    zIndexEnd: mobject.zIndex ?? 0,
+    sizeEnd: mobject.size ?? meta?.sizeStart,
+    radiusEnd: mobject.radius ?? meta?.radiusStart,
+    strokeEnd: mobject.stroke,
+    fillEnd: mobject.fill,
+    pointsEnd: mobject.points ? JSON.stringify(mobject.points) : meta?.pointsStart,
+  };
+}
+
+function transformAnimation(
+  mobject: Mobject,
+  mutate: () => void,
+  opts?: AnimationOpts
+): PendingAnimation {
+  const meta = snapshotMeta(mobject);
+  mutate();
+  return {
+    kind: 'transform',
+    targetId: mobject.id,
+    runTime: opts?.runTime,
+    meta: finalizeMeta(meta, mobject),
+  };
+}
+
 function attachMobjectApi(mobject: Mobject): Mobject {
   mobject.become = (target: Mobject): Mobject => {
     const currentId = mobject.id;
@@ -265,6 +552,32 @@ function attachMobjectApi(mobject: Mobject): Mobject {
       ReplacementTransform(mobject, target, opts),
     moveAlongPath: (path: Mobject, opts?: { runTime?: number }) =>
       MoveAlongPath(mobject, path, opts),
+    shift: (delta: PointLike, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.shift?.(delta);
+      }, opts),
+    moveTo: (target: PointLike | Mobject, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.moveTo?.(target);
+      }, opts),
+    move_to: (target: PointLike | Mobject, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.moveTo?.(target);
+      }, opts),
+    scale: (factor: number, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.scale?.(factor);
+      }, opts),
+    setOpacity: (opacity: number, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.setOpacity?.(opacity);
+      }, opts),
+    set_opacity: (opacity: number, opts?: AnimationOpts) =>
+      transformAnimation(mobject, () => {
+        mobject.setOpacity?.(opacity);
+      }, opts),
+    setValue: (_value: number, _opts?: AnimationOpts) => Wait(0),
+    set_value: (_value: number, _opts?: AnimationOpts) => Wait(0),
   };
   mobject.moveTo = (target: PointLike | Mobject): Mobject => {
     const currentX = getMobjectX(mobject);
@@ -302,6 +615,101 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     mobject.y = getMobjectY(mobject) + dyPx;
     return mobject;
   };
+  mobject.scale = (factor: number): Mobject => {
+    mobject.scaleFactor = (mobject.scaleFactor ?? 1) * factor;
+    if (typeof mobject.size === 'number') mobject.size *= factor;
+    if (typeof mobject.radius === 'number') mobject.radius *= factor;
+    if (mobject.points) {
+      const center = mobject.getCenter?.() ?? { x: getMobjectX(mobject), y: getMobjectY(mobject) };
+      mobject.points = mobject.points.map((point) => ({
+        x: center.x + (point.x - center.x) * factor,
+        y: center.y + (point.y - center.y) * factor,
+      }));
+    }
+    if (mobject.children) {
+      mobject.children.forEach((child) => child.scale?.(factor));
+    }
+    return mobject;
+  };
+  mobject.rotate = (angle: number): Mobject => {
+    mobject.rotation = (mobject.rotation ?? 0) + angle;
+    return mobject;
+  };
+  mobject.stretch = (factor: number, dim = 0): Mobject => {
+    if (dim === 0) {
+      mobject.stretchX = (mobject.stretchX ?? 1) * factor;
+      if (typeof mobject.size === 'number') mobject.size *= factor;
+    } else {
+      mobject.stretchY = (mobject.stretchY ?? 1) * factor;
+      if (typeof mobject.radius === 'number') mobject.radius *= factor;
+    }
+    return mobject;
+  };
+  mobject.flip = (axis: PointLike = RIGHT): Mobject => {
+    const [dx, dy] = asVector(axis);
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      mobject.stretch?.(-1, 1);
+    } else {
+      mobject.stretch?.(-1, 0);
+    }
+    return mobject;
+  };
+  mobject.copy = (id?: string): Mobject => cloneMobject(mobject, id);
+  mobject.setColor = (color: Color): Mobject => {
+    mobject.stroke = color;
+    mobject.fill = color;
+    return mobject;
+  };
+  mobject.set_color = mobject.setColor;
+  mobject.setFill = (fill: Color, opacity?: number): Mobject => {
+    mobject.fill = fill;
+    if (typeof opacity === 'number') mobject.opacity = opacity;
+    return mobject;
+  };
+  mobject.set_fill = mobject.setFill;
+  mobject.setStroke = (
+    stroke: Color,
+    width?: number,
+    opacity?: number
+  ): Mobject => {
+    mobject.stroke = stroke;
+    if (typeof width === 'number') mobject.strokeWidth = width;
+    if (typeof opacity === 'number') mobject.opacity = opacity;
+    return mobject;
+  };
+  mobject.set_stroke = mobject.setStroke;
+  mobject.setOpacity = (opacity: number): Mobject => {
+    mobject.opacity = opacity;
+    return mobject;
+  };
+  mobject.set_opacity = mobject.setOpacity;
+  mobject.setZIndex = (zIndex: number): Mobject => {
+    mobject.zIndex = zIndex;
+    return mobject;
+  };
+  mobject.set_z_index = mobject.setZIndex;
+  mobject.matchColor = (target: Mobject): Mobject => {
+    mobject.stroke = target.stroke;
+    mobject.fill = target.fill;
+    return mobject;
+  };
+  mobject.match_color = mobject.matchColor;
+  mobject.matchFill = (target: Mobject): Mobject => {
+    mobject.fill = target.fill;
+    return mobject;
+  };
+  mobject.match_fill = mobject.matchFill;
+  mobject.matchStroke = (target: Mobject): Mobject => {
+    mobject.stroke = target.stroke;
+    mobject.strokeWidth = target.strokeWidth;
+    return mobject;
+  };
+  mobject.match_stroke = mobject.matchStroke;
+  mobject.matchOpacity = (target: Mobject): Mobject => {
+    mobject.opacity = target.opacity;
+    return mobject;
+  };
+  mobject.match_opacity = mobject.matchOpacity;
   mobject.nextTo = (
     target: Mobject,
     direction: PointLike = RIGHT,
@@ -390,6 +798,88 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     y: getMobjectY(mobject),
   });
   mobject.get_center = mobject.getCenter;
+  mobject.surround = (target: Mobject, buff = 12): Mobject => {
+    const bounds = mobjectBounds(target);
+    mobject.x = (bounds.left + bounds.right) / 2;
+    mobject.y = (bounds.top + bounds.bottom) / 2;
+    const width = bounds.right - bounds.left + buff * 2;
+    const height = bounds.bottom - bounds.top + buff * 2;
+    if (mobject.kind === 'square') {
+      mobject.size = Math.max(width, height);
+    } else if (mobject.kind === 'circle') {
+      mobject.radius = Math.max(width, height) / 2;
+    }
+    return mobject;
+  };
+  mobject.generateTarget = (): Mobject => {
+    mobject.target = cloneMobject(mobject, `${mobject.id}_target`);
+    return mobject.target;
+  };
+  mobject.generate_target = mobject.generateTarget;
+  mobject.saveState = (): Mobject => {
+    mobject.savedState = {
+      x: mobject.x,
+      y: mobject.y,
+      size: mobject.size,
+      radius: mobject.radius,
+      stroke: mobject.stroke,
+      fill: mobject.fill,
+      opacity: mobject.opacity,
+      strokeWidth: mobject.strokeWidth,
+      zIndex: mobject.zIndex,
+      rotation: mobject.rotation,
+      scaleFactor: mobject.scaleFactor,
+      points: mobject.points?.map((point) => ({ ...point })),
+    };
+    return mobject;
+  };
+  mobject.save_state = mobject.saveState;
+  mobject.restore = (): Mobject => {
+    if (!mobject.savedState) return mobject;
+    Object.assign(mobject, {
+      ...mobject,
+      ...mobject.savedState,
+      points: mobject.savedState.points?.map((point) => ({ ...point })),
+    });
+    return mobject;
+  };
+  mobject.add = (...children: Mobject[]): Mobject => {
+    mobject.children = [...(mobject.children ?? []), ...children];
+    return mobject;
+  };
+  mobject.remove = (...children: Mobject[]): Mobject => {
+    const ids = new Set(children.map((child) => child.id));
+    mobject.children = (mobject.children ?? []).filter((child) => !ids.has(child.id));
+    return mobject;
+  };
+  mobject.addUpdater = (updater: Updater): Mobject => {
+    mobject.updaters = [...(mobject.updaters ?? []), updater];
+    return mobject;
+  };
+  mobject.add_updater = mobject.addUpdater;
+  mobject.removeUpdater = (updater: Updater): Mobject => {
+    mobject.updaters = (mobject.updaters ?? []).filter((item) => item !== updater);
+    return mobject;
+  };
+  mobject.remove_updater = mobject.removeUpdater;
+  mobject.clearUpdaters = (): Mobject => {
+    mobject.updaters = [];
+    return mobject;
+  };
+  mobject.clear_updaters = mobject.clearUpdaters;
+  mobject.get = (index: number): Mobject | undefined => (mobject.children ?? [])[index];
+  mobject.slice = (start?: number, end?: number): Mobject[] =>
+    (mobject.children ?? []).slice(start, end);
+  mobject.setX = (x: number): Mobject => {
+    mobject.x = x;
+    return mobject;
+  };
+  mobject.set_x = mobject.setX;
+  mobject.setY = (y: number): Mobject => {
+    mobject.y = y;
+    return mobject;
+  };
+  mobject.set_y = mobject.setY;
   return mobject;
 }
 
@@ -512,6 +1002,15 @@ export function Dot(
     strokeWidth?: number;
     color?: Color;
   },
+  pointOrOpts?: PointLike | {
+    x?: number;
+    y?: number;
+    radius?: number;
+    stroke?: string;
+    fill?: string;
+    strokeWidth?: number;
+    color?: Color;
+  },
   opts?: {
     x?: number;
     y?: number;
@@ -525,14 +1024,20 @@ export function Dot(
   const id = typeof idOrPointOrOpts === 'string'
     ? idOrPointOrOpts
     : autoId('dot');
-  const point = isPoint(idOrPointOrOpts) || isTuple(idOrPointOrOpts)
-    ? fromPointLike(idOrPointOrOpts)
+  const pointLike = typeof idOrPointOrOpts === 'string'
+    ? pointOrOpts
+    : idOrPointOrOpts;
+  const point = isPoint(pointLike) || isTuple(pointLike)
+    ? fromPointLike(pointLike)
     : undefined;
-  const inlineOpts = (typeof idOrPointOrOpts === 'object' &&
-    idOrPointOrOpts !== null &&
-    !isPoint(idOrPointOrOpts) &&
-    !isTuple(idOrPointOrOpts)
-      ? idOrPointOrOpts
+  const inlineSource = typeof idOrPointOrOpts === 'string'
+    ? pointOrOpts
+    : idOrPointOrOpts;
+  const inlineOpts = (typeof inlineSource === 'object' &&
+    inlineSource !== null &&
+    !isPoint(inlineSource) &&
+    !isTuple(inlineSource)
+      ? inlineSource
       : undefined);
   const merged = { ...inlineOpts, ...opts };
   const color = merged?.color ?? merged?.fill ?? merged?.stroke ?? '#e2e8f0';
@@ -573,6 +1078,27 @@ export function TitleText(
     fill: opts.fill ?? '#e2e8f0',
     strokeWidth: 1,
     fontSize: opts.fontSize ?? 46,
+  });
+}
+
+export function Text(
+  value: string,
+  opts?: {
+    id?: string;
+    x?: number;
+    y?: number;
+    stroke?: string;
+    fill?: string;
+    fontSize?: number;
+  }
+): Mobject {
+  return TitleText(opts?.id ?? autoId('text'), {
+    x: opts?.x,
+    y: opts?.y,
+    value,
+    stroke: opts?.stroke,
+    fill: opts?.fill,
+    fontSize: opts?.fontSize ?? 36,
   });
 }
 
@@ -791,7 +1317,13 @@ export function CubicBezier(
   });
 }
 
-export function VGroup(id: string, ...children: Mobject[]): Mobject {
+export function VGroup(
+  idOrChild: string | Mobject,
+  ...rest: Mobject[]
+): Mobject {
+  const hasId = typeof idOrChild === 'string';
+  const id = hasId ? idOrChild : autoId('group');
+  const children = hasId ? rest : [idOrChild, ...rest];
   return attachMobjectApi({
     id,
     kind: 'group',
@@ -799,6 +1331,78 @@ export function VGroup(id: string, ...children: Mobject[]): Mobject {
     stroke: 'none',
     strokeWidth: 0,
   });
+}
+
+export function Axes(opts?: {
+  id?: string;
+  xRange?: [number, number, number?];
+  yRange?: [number, number, number?];
+  tips?: boolean;
+  color?: Color;
+  strokeWidth?: number;
+}): Mobject {
+  const xRange = opts?.xRange ?? [-4, 4, 1];
+  const yRange = opts?.yRange ?? [-3, 3, 1];
+  const color = opts?.color ?? '#e2e8f0';
+  const xAxis = Line([xRange[0], 0, 0], [xRange[1], 0, 0], {
+    id: `${opts?.id ?? 'axes'}_x`,
+    color,
+    strokeWidth: opts?.strokeWidth ?? 4,
+  });
+  const yAxis = Line([0, yRange[0], 0], [0, yRange[1], 0], {
+    id: `${opts?.id ?? 'axes'}_y`,
+    color,
+    strokeWidth: opts?.strokeWidth ?? 4,
+  });
+  const axes = VGroup(opts?.id ?? autoId('axes'), xAxis, yAxis);
+  axes.plot = (
+    fn: (x: number) => number,
+    plotOpts?: { id?: string; color?: Color; strokeWidth?: number; samples?: number }
+  ): Mobject => {
+    const samples = Math.max(8, plotOpts?.samples ?? 80);
+    const points: Point[] = [];
+    const [minX, maxX] = xRange;
+    for (let i = 0; i <= samples; i += 1) {
+      const x = minX + ((maxX - minX) * i) / samples;
+      points.push(fromPointLike([x, fn(x), 0]));
+    }
+    return Path(plotOpts?.id ?? autoId('graph'), {
+      points,
+      stroke: plotOpts?.color ?? '#4CC9F0',
+      strokeWidth: plotOpts?.strokeWidth ?? 6,
+      closed: false,
+    });
+  };
+  return axes;
+}
+
+export function SVGMobject(
+  href: string,
+  opts?: {
+    id?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    opacity?: number;
+  }
+): Mobject {
+  return attachMobjectApi({
+    id: opts?.id ?? autoId('svg'),
+    kind: 'svg',
+    x: opts?.x ?? CENTER_X,
+    y: opts?.y ?? CENTER_Y,
+    size: opts?.width ?? 120,
+    radius: opts?.height ?? 120,
+    stroke: 'none',
+    strokeWidth: 0,
+    opacity: opts?.opacity ?? 1,
+    svgHref: href,
+  });
+}
+
+export function always_redraw(factory: () => Mobject): Mobject {
+  return factory();
 }
 
 function tokenizeMathTex(tex: string): string[] {

@@ -1,12 +1,11 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
+import { Circle, Scene, Square } from '$lib/manim';
 
 export function buildOpenGLParityScene(): Scene {
   const scene = new Scene(0.7);
-  const title = TitleText('title', { x: 400, y: 72, value: 'OpenGL Parity', fontSize: 40 });
-  const gpu = Square('square_gpu', { x: 286, y: 270, size: 126, stroke: '#22d3ee' });
-  const gl = Circle('circle_gl', { x: 534, y: 248, radius: 76, stroke: '#f97316' });
-  scene.add(title, gpu, gl);
-  scene.play(Create(title));
-  scene.play(Create(gpu), Create(gl));
+  scene.add(
+    Square('square_gpu', { x: 320, y: 248, size: 126, stroke: '#4CC9F0' }),
+    Circle('circle_gl', { x: 460, y: 248, radius: 76, stroke: '#F72585' })
+  );
+  scene.wait(0.5);
   return scene;
 }

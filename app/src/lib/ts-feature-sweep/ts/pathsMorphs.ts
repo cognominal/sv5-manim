@@ -1,13 +1,27 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
+import {
+  Circle,
+  Create,
+  CubicBezier,
+  Dot,
+  MoveAlongPath,
+  Scene
+} from '$lib/manim';
 
 export function buildPathsMorphsScene(): Scene {
   const scene = new Scene(1);
-  const title = TitleText('title', { x: 400, y: 72, value: 'Paths and Morphs', fontSize: 38 });
-  const shape = Square('square_morph', { x: 300, y: 268, size: 120, stroke: '#06b6d4' });
-  const start = Circle('circle_start', { x: 500, y: 220, radius: 44, stroke: '#f59e0b' });
-  const end = Circle('circle_end', { x: 600, y: 320, radius: 44, stroke: '#f97316' });
-  scene.add(title, shape, start, end);
-  scene.play(Create(title));
-  scene.play(Create(shape), Create(start), Create(end));
+  const path = CubicBezier(
+    [-3, -1, 0],
+    [-1, 2, 0],
+    [1, -2, 0],
+    [3, 1, 0],
+    { stroke: '#4CC9F0', strokeWidth: 6 }
+  );
+  const dot = Dot('moving_dot', { color: '#F72585' });
+  const final = Circle('final_circle', { radius: 24, stroke: '#4CC9F0' });
+  final.moveTo!(dot);
+  scene.add(path, dot, final);
+  scene.play(Create(path));
+  scene.play(MoveAlongPath(dot, path, { runTime: 2.5 }));
+  scene.play(dot.animate?.become(final, { runTime: 0.8 }) ?? Create(final));
   return scene;
 }

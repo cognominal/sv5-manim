@@ -1,12 +1,11 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
+import { Circle, Scene, Square } from '$lib/manim';
 
 export function buildCairoParityScene(): Scene {
   const scene = new Scene(0.7);
-  const title = TitleText('title', { x: 400, y: 72, value: 'Cairo Parity', fontSize: 40 });
-  const cpu = Square('square_cpu', { x: 286, y: 270, size: 126, stroke: '#38bdf8' });
-  const cairo = Circle('circle_cairo', { x: 534, y: 248, radius: 76, stroke: '#fb7185' });
-  scene.add(title, cpu, cairo);
-  scene.play(Create(title));
-  scene.play(Create(cpu), Create(cairo));
+  scene.add(
+    Circle('circle_cairo', { x: 340, y: 248, radius: 76, stroke: '#F72585' }),
+    Square('square_cpu', { x: 500, y: 248, size: 126, stroke: '#4CC9F0' })
+  );
+  scene.wait(0.5);
   return scene;
 }

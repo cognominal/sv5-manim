@@ -15,7 +15,7 @@ export function buildTransformMatchingTexScene(): Scene {
     color: '#dbeafe',
   });
 
-  scene.add(start, end);
+  scene.add(start);
   scene.play(...TransformMatchingTex(start, end, { runTime: 1.5 }));
   scene.wait(0.5);
   return scene;

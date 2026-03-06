@@ -38,11 +38,31 @@
   }
 
   function centeredScaleTransform(mobject: Mobject): string | undefined {
-    const scale = scaleOf(mobject);
-    if (Math.abs(scale - 1) < 0.001) return undefined;
     const x = posX(mobject) ?? 0;
     const y = posY(mobject) ?? 0;
-    return `translate(${x} ${y}) scale(${scale}) translate(${-x} ${-y})`;
+    const transforms: string[] = [];
+    const scale = scaleOf(mobject);
+    const stretchX = mobject.stretchX ?? 1;
+    const stretchY = mobject.stretchY ?? 1;
+    const rotation = mobject.rotation ?? 0;
+    if (Math.abs(rotation) >= 0.001) {
+      transforms.push(`rotate(${(rotation * 180) / Math.PI} ${x} ${y})`);
+    }
+    if (
+      Math.abs(scale - 1) >= 0.001 ||
+      Math.abs(stretchX - 1) >= 0.001 ||
+      Math.abs(stretchY - 1) >= 0.001
+    ) {
+      transforms.push(
+        `translate(${x} ${y}) scale(${scale * stretchX} ${scale * stretchY}) ` +
+        `translate(${-x} ${-y})`
+      );
+    }
+    return transforms.length > 0 ? transforms.join(' ') : undefined;
+  }
+
+  function alphaOf(mobject: Mobject, drawProgress: number): number {
+    return (mobject.opacity ?? 1) * drawProgress;
   }
 
   function strokeDash(progress: number, length: number): string {
@@ -193,6 +213,10 @@
     }
     return out;
   }
+
+  const orderedMobjects = $derived(
+    [...mobjects].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+  );
 </script>
 
 <svg
@@ -219,7 +243,7 @@
       {/if}
     {/if}
   {/each}
-  {#each mobjects as mobject (mobject.id)}
+  {#each orderedMobjects as mobject (mobject.id)}
     {@const replacedActive = replacements.some((r) =>
       r.sourceId === mobject.id || r.targetId === mobject.id
     )}
@@ -239,7 +263,7 @@
         x={posX(mobject)}
         y={posY(mobject)}
         fill={mobject.fill ?? '#e2e8f0'}
-        fill-opacity={drawProgress}
+        fill-opacity={alphaOf(mobject, drawProgress)}
         text-anchor="middle"
         font-size={mobject.fontSize ?? 32}
         transform={centeredScaleTransform(mobject)}
@@ -257,7 +281,7 @@
         y={(posY(mobject) ?? 0) - boxH / 2}
         width={boxW}
         height={boxH}
-        opacity={drawProgress}
+        opacity={alphaOf(mobject, drawProgress)}
         transform={centeredScaleTransform(mobject)}
       >
         <div
@@ -285,7 +309,7 @@
           width={drawW}
           height={drawH}
           href={`data:image/svg+xml;utf8,${encodeURIComponent(mobject.texSvg)}`}
-          opacity={drawProgress}
+          opacity={alphaOf(mobject, drawProgress)}
           transform={centeredScaleTransform(mobject)}
         />
       {:else}
@@ -299,7 +323,7 @@
           y={(posY(mobject) ?? 0) - boxH / 2}
           width={boxW}
           height={boxH}
-          opacity={drawProgress}
+          opacity={alphaOf(mobject, drawProgress)}
           transform={centeredScaleTransform(mobject)}
         >
           <div
@@ -323,6 +347,7 @@
         height={size}
         fill="none"
         stroke={mobject.stroke}
+        stroke-opacity={alphaOf(mobject, drawProgress)}
         stroke-width={mobject.strokeWidth}
         stroke-dasharray={strokeDash(drawProgress, length)}
         stroke-dashoffset={strokeOffset(drawProgress, length)}
@@ -338,6 +363,7 @@
         r={radius}
         fill="none"
         stroke={mobject.stroke}
+        stroke-opacity={alphaOf(mobject, drawProgress)}
         stroke-width={mobject.strokeWidth}
         stroke-dasharray={strokeDash(drawProgress, length)}
         stroke-dashoffset={strokeOffset(drawProgress, length)}
@@ -353,6 +379,7 @@
         d={d}
         fill="none"
         stroke={mobject.stroke}
+        stroke-opacity={alphaOf(mobject, drawProgress)}
         stroke-width={mobject.strokeWidth}
         stroke-dasharray={strokeDash(drawProgress, length)}
         stroke-dashoffset={strokeOffsetForward(drawProgress, length)}
@@ -367,7 +394,21 @@
         fill={mobject.fill ?? mobject.stroke ?? '#e2e8f0'}
         stroke={mobject.stroke}
         stroke-width={mobject.strokeWidth}
-        fill-opacity={drawProgress}
+        fill-opacity={alphaOf(mobject, drawProgress)}
+        stroke-opacity={alphaOf(mobject, drawProgress)}
+        transform={centeredScaleTransform(mobject)}
+      />
+    {:else if mobject.kind === 'svg' && mobject.svgHref}
+      {@const width = mobject.size ?? 120}
+      {@const height = mobject.radius ?? width}
+      <image
+        id={mobject.id}
+        x={(posX(mobject) ?? 0) - width / 2}
+        y={(posY(mobject) ?? 0) - height / 2}
+        width={width}
+        height={height}
+        href={mobject.svgHref}
+        opacity={alphaOf(mobject, drawProgress)}
         transform={centeredScaleTransform(mobject)}
       />
     {/if}
