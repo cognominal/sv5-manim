@@ -7,6 +7,9 @@ export function buildAxesGraphsPlottingScene(): Scene {
     xRange: [-4, 4, 1],
     yRange: [-2, 6, 1],
     tips: false,
+    axisConfig: {
+      includeNumbers: true
+    }
   });
   const graph = axes.plot?.((x) => 0.3 * x * x, {
     id: 'graph',

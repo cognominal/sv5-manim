@@ -289,6 +289,7 @@
               : 'middle'
         }
         font-size={mobject.fontSize ?? 32}
+        font-family={mobject.fontFamily}
         transform={centeredScaleTransform(mobject)}
       >
         {#if lines.length <= 1}

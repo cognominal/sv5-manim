@@ -158,6 +158,9 @@ surface and the current Svelte preview renderer.
   The local `Axes` primitive now renders axis lines with tick marks and
   numeric labels derived from `x_range` / `y_range`, and the TS scene
   continues to use the matching `axes.plot(...)` graph model.
+  Number labels are now explicitly enabled in both the Python and TS
+  scenes, and the local axes frame/label styling has been tuned closer
+  to the Python render.
 
 ## Partial
 
@@ -219,7 +222,8 @@ in [`manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts):
   values, including `there_and_back`
 - Axes rendering:
   `Axes(...)` now builds tick marks and numeric labels from axis ranges
-  instead of only returning the two main axis lines
+  instead of only returning the two main axis lines, with explicit
+  number-label opt-in and closer plot-frame typography/styling
 
 ## Remaining High-Value Gaps
 

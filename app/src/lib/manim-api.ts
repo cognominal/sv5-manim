@@ -36,6 +36,7 @@ export type Mobject = {
   texWidth?: number;
   texHeight?: number;
   fontSize?: number;
+  fontFamily?: string;
   rotation?: number;
   scaleFactor?: number;
   stretchX?: number;
@@ -1702,6 +1703,7 @@ export function TitleText(
     stroke?: string;
     fill?: string;
     fontSize?: number;
+    fontFamily?: string;
   }
 ): Mobject {
   return attachMobjectApi({
@@ -1714,6 +1716,7 @@ export function TitleText(
     fill: opts.fill ?? '#e2e8f0',
     strokeWidth: 1,
     fontSize: opts.fontSize ?? 46,
+    fontFamily: opts.fontFamily,
   });
 }
 
@@ -1726,6 +1729,7 @@ export function Text(
     stroke?: string;
     fill?: string;
     fontSize?: number;
+    fontFamily?: string;
     width?: number;
     textAlign?: 'left' | 'center' | 'right';
   }
@@ -1737,6 +1741,7 @@ export function Text(
     stroke: opts?.stroke,
     fill: opts?.fill,
     fontSize: opts?.fontSize ?? 36,
+    fontFamily: opts?.fontFamily,
   });
   text.width = opts?.width;
   text.textAlign = opts?.textAlign ?? 'center';
@@ -2377,7 +2382,36 @@ export function Axes(opts?: {
   tips?: boolean;
   color?: Color;
   strokeWidth?: number;
+  xLength?: number;
+  yLength?: number;
+  axisConfig?: {
+    includeNumbers?: boolean;
+  };
 }): Mobject {
+  const numberFontFamily = 'KaTeX_Main, "Times New Roman", serif';
+  const xRange = opts?.xRange ?? [-4, 4, 1];
+  const yRange = opts?.yRange ?? [-3, 3, 1];
+  const color = opts?.color ?? '#e2e8f0';
+  const strokeWidth = opts?.strokeWidth ?? 3;
+  const id = opts?.id ?? autoId('axes');
+  const includeNumbers = opts?.axisConfig?.includeNumbers ?? false;
+  const xLength = opts?.xLength ?? (STAGE_WIDTH - 260);
+  const yLength = opts?.yLength ?? (STAGE_HEIGHT - 140);
+  const plotLeft = (STAGE_WIDTH - xLength) / 2;
+  const plotTop = (STAGE_HEIGHT - yLength) / 2;
+  const xSpan = Math.max(1e-9, xRange[1] - xRange[0]);
+  const ySpan = Math.max(1e-9, yRange[1] - yRange[0]);
+
+  function axisPoint(
+    x: number,
+    y: number,
+  ): Point {
+    return {
+      x: plotLeft + ((x - xRange[0]) / xSpan) * xLength,
+      y: plotTop + ((yRange[1] - y) / ySpan) * yLength,
+    };
+  }
+
   function buildAxisTicks(
     axisId: string,
     axis: 'x' | 'y',
@@ -2390,8 +2424,9 @@ export function Axes(opts?: {
     if (step <= 0) return [];
     const ticks: Mobject[] = [];
     const epsilon = 1e-9;
-    const labelOffsetPx = 28;
-    const tickHalfSizePx = 8;
+    const labelOffsetPx = 34;
+    const tickHalfSizePx = 10;
+    const numberFontSize = 30;
 
     for (
       let value = min;
@@ -2400,11 +2435,13 @@ export function Axes(opts?: {
     ) {
       if (Math.abs(value) <= epsilon) continue;
       if (axis === 'x') {
-        const x = fromPointLike([value, 0, 0]).x;
+        const point = axisPoint(value, 0);
+        const x = point.x;
+        const y = point.y;
         ticks.push(
           Line(
-            { x, y: CENTER_Y - tickHalfSizePx },
-            { x, y: CENTER_Y + tickHalfSizePx },
+            { x, y: y - tickHalfSizePx },
+            { x, y: y + tickHalfSizePx },
             {
               id: `${axisId}_tick_${String(value).replace('.', '_')}`,
               color,
@@ -2416,19 +2453,22 @@ export function Axes(opts?: {
           Text(String(value), {
             id: `${axisId}_label_${String(value).replace('.', '_')}`,
             x,
-            y: CENTER_Y + labelOffsetPx,
+            y: y + labelOffsetPx,
             fill: color,
-            fontSize: 20,
+            fontSize: numberFontSize,
+            fontFamily: numberFontFamily,
           })
         );
         continue;
       }
 
-      const y = fromPointLike([0, value, 0]).y;
+      const point = axisPoint(0, value);
+      const x = point.x;
+      const y = point.y;
       ticks.push(
         Line(
-          { x: CENTER_X - tickHalfSizePx, y },
-          { x: CENTER_X + tickHalfSizePx, y },
+          { x: x - tickHalfSizePx, y },
+          { x: x + tickHalfSizePx, y },
           {
             id: `${axisId}_tick_${String(value).replace('.', '_')}`,
             color,
@@ -2439,33 +2479,41 @@ export function Axes(opts?: {
       ticks.push(
         Text(String(value), {
           id: `${axisId}_label_${String(value).replace('.', '_')}`,
-          x: CENTER_X - labelOffsetPx,
+          x: x - labelOffsetPx,
           y,
           fill: color,
-          fontSize: 20,
+          fontSize: numberFontSize,
+          fontFamily: numberFontFamily,
         })
       );
     }
     return ticks;
   }
 
-  const xRange = opts?.xRange ?? [-4, 4, 1];
-  const yRange = opts?.yRange ?? [-3, 3, 1];
-  const color = opts?.color ?? '#e2e8f0';
-  const strokeWidth = opts?.strokeWidth ?? 4;
-  const id = opts?.id ?? autoId('axes');
-  const xAxis = Line([xRange[0], 0, 0], [xRange[1], 0, 0], {
+  const xAxis = Line(
+    axisPoint(xRange[0], 0),
+    axisPoint(xRange[1], 0),
+    {
     id: `${id}_x`,
     color,
     strokeWidth,
-  });
-  const yAxis = Line([0, yRange[0], 0], [0, yRange[1], 0], {
+    }
+  );
+  const yAxis = Line(
+    axisPoint(0, yRange[0]),
+    axisPoint(0, yRange[1]),
+    {
     id: `${id}_y`,
     color,
     strokeWidth,
-  });
-  const xTicks = buildAxisTicks(`${id}_x`, 'x', xRange, color, strokeWidth);
-  const yTicks = buildAxisTicks(`${id}_y`, 'y', yRange, color, strokeWidth);
+    }
+  );
+  const xTicks = includeNumbers
+    ? buildAxisTicks(`${id}_x`, 'x', xRange, color, strokeWidth)
+    : [];
+  const yTicks = includeNumbers
+    ? buildAxisTicks(`${id}_y`, 'y', yRange, color, strokeWidth)
+    : [];
   const axes = VGroup(id, xAxis, yAxis, ...xTicks, ...yTicks);
   axes.plot = (
     fn: (x: number) => number,
@@ -2476,12 +2524,12 @@ export function Axes(opts?: {
     const [minX, maxX] = xRange;
     for (let i = 0; i <= samples; i += 1) {
       const x = minX + ((maxX - minX) * i) / samples;
-      points.push(fromPointLike([x, fn(x), 0]));
+      points.push(axisPoint(x, fn(x)));
     }
     return Path(plotOpts?.id ?? autoId('graph'), {
       points,
       stroke: plotOpts?.color ?? '#4CC9F0',
-      strokeWidth: plotOpts?.strokeWidth ?? 6,
+      strokeWidth: plotOpts?.strokeWidth ?? 5,
       closed: false,
     });
   };
