@@ -10,8 +10,7 @@
   } from '$lib/feature-sweep/core/timeline-controller';
   import { FRAME_STEP_SEC } from '$lib/feature-sweep/time-wrap/core';
   import {
-    flattenSceneMobjects,
-    type Point,
+    evaluateSceneAtTime,
     type Scene
   } from '$lib/manim';
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
@@ -122,270 +121,17 @@
       : timeline.currentTimeSec
   );
 
-  const progressById = $derived.by(() => {
-    if (!scene) return new Map<string, number>();
-    const byId = new Map<string, number>();
-    const introKinds = new Set(['create', 'fadeIn']);
-    const introTargets = new Set(
-      scene.timeline
-        .filter((step) => step.targetId && introKinds.has(step.kind))
-        .map((step) => step.targetId as string)
-    );
-    for (const mobject of flattenSceneMobjects(scene.mobjects)) {
-      byId.set(mobject.id, introTargets.has(mobject.id) ? 0 : (mobject.opacity ?? 1));
-    }
-    const stepsByPhase = scene.timeline.reduce((phases, step) => {
-      const group = phases.get(step.phase) ?? [];
-      group.push(step);
-      phases.set(step.phase, group);
-      return phases;
-    }, new Map<number, typeof scene.timeline>());
-    let phaseStart = 0;
-
-    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
-      const steps = stepsByPhase.get(phase) ?? [];
-      const phaseDuration = steps.reduce(
-        (maxMs, step) => Math.max(maxMs, step.runTime),
-        0
-      );
-
-      for (const step of steps) {
-        if (!step.targetId) continue;
-        const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
-        const stepProgress = Math.max(0, Math.min(1, raw));
-        if (step.kind === 'create' || step.kind === 'fadeIn') {
-          const previous = byId.get(step.targetId) ?? 0;
-          byId.set(step.targetId, Math.max(previous, stepProgress));
-        } else if (step.kind === 'fadeOut') {
-          const previous = byId.get(step.targetId) ?? 1;
-          byId.set(step.targetId, Math.max(0, previous * (1 - stepProgress)));
-        } else if (step.kind === 'moveAlongPath' && intrinsicTimeSec >= phaseStart) {
-          byId.set(step.targetId, 1);
+  const evaluatedScene = $derived.by(() =>
+    scene
+      ? evaluateSceneAtTime(scene, intrinsicTimeSec)
+      : {
+          mobjects: [],
+          progressById: new Map<string, number>(),
+          replacements: [],
+          completedReplacementSources: new Set<string>(),
+          completedReplacementTargets: new Set<string>()
         }
-      }
-
-      phaseStart += phaseDuration;
-    }
-
-    return byId;
-  });
-
-  const replacementState = $derived.by(() => {
-    const active: Array<{ sourceId: string; targetId: string; progress: number }> = [];
-    const completedSources = new Set<string>();
-    const completedTargets = new Set<string>();
-    if (!scene) {
-      return { active, completedSources, completedTargets };
-    }
-
-    const stepsByPhase = scene.timeline.reduce((phases, step) => {
-      const group = phases.get(step.phase) ?? [];
-      group.push(step);
-      phases.set(step.phase, group);
-      return phases;
-    }, new Map<number, typeof scene.timeline>());
-    let phaseStart = 0;
-
-    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
-      const steps = stepsByPhase.get(phase) ?? [];
-      const phaseDuration = steps.reduce(
-        (maxMs, step) => Math.max(maxMs, step.runTime),
-        0
-      );
-
-      for (const step of steps) {
-        if (
-          step.kind !== 'replacementTransform' ||
-          !step.sourceId ||
-          !step.targetId
-        ) {
-          continue;
-        }
-        const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
-        const stepProgress = Math.max(0, Math.min(1, raw));
-        if (stepProgress > 0 && stepProgress < 1) {
-          active.push({
-            sourceId: step.sourceId,
-            targetId: step.targetId,
-            progress: stepProgress
-          });
-        }
-        if (stepProgress >= 1) {
-          completedSources.add(step.sourceId);
-          completedTargets.add(step.targetId);
-        }
-      }
-
-      phaseStart += phaseDuration;
-    }
-    return { active, completedSources, completedTargets };
-  });
-
-  function segmentLength(a: Point, b: Point): number {
-    return Math.hypot(b.x - a.x, b.y - a.y);
-  }
-
-  function pointAlongPath(points: Point[], t: number): Point {
-    if (points.length === 0) return { x: 0, y: 0 };
-    if (points.length === 1) return points[0];
-    const clamped = Math.max(0, Math.min(1, t));
-    let total = 0;
-    for (let i = 1; i < points.length; i += 1) {
-      total += segmentLength(points[i - 1], points[i]);
-    }
-    if (total <= 0) return points[0];
-    const target = total * clamped;
-    let acc = 0;
-    for (let i = 1; i < points.length; i += 1) {
-      const a = points[i - 1];
-      const b = points[i];
-      const len = segmentLength(a, b);
-      if (acc + len >= target) {
-        const local = len > 0 ? (target - acc) / len : 0;
-        return {
-          x: a.x + (b.x - a.x) * local,
-          y: a.y + (b.y - a.y) * local
-        };
-      }
-      acc += len;
-    }
-    return points[points.length - 1];
-  }
-
-  const positionsById = $derived.by(() => {
-    const positions = new Map<string, { x: number; y: number }>();
-    if (!scene) return positions;
-    const mobjects = flattenSceneMobjects(scene.mobjects);
-    const byId = new Map(mobjects.map((mobject) => [mobject.id, mobject]));
-
-    const stepsByPhase = scene.timeline.reduce((phases, step) => {
-      const group = phases.get(step.phase) ?? [];
-      group.push(step);
-      phases.set(step.phase, group);
-      return phases;
-    }, new Map<number, typeof scene.timeline>());
-    let phaseStart = 0;
-
-    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
-      const steps = stepsByPhase.get(phase) ?? [];
-      const phaseDuration = steps.reduce(
-        (maxMs, step) => Math.max(maxMs, step.runTime),
-        0
-      );
-      for (const step of steps) {
-        if (
-          step.kind === 'moveAlongPath' &&
-          step.targetId &&
-          step.pathId
-        ) {
-          const target = byId.get(step.targetId);
-          const path = byId.get(step.pathId);
-          if (!target || !path?.points || path.points.length < 2) continue;
-          const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
-          const stepProgress = Math.max(0, Math.min(1, raw));
-          const at = pointAlongPath(path.points, stepProgress);
-          positions.set(target.id, at);
-          continue;
-        }
-        if (step.kind !== 'transform' || !step.targetId) continue;
-        const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
-        const stepProgress = Math.max(0, Math.min(1, raw));
-        const meta = step.meta;
-        if (
-          typeof meta?.xStart === 'number' &&
-          typeof meta?.xEnd === 'number' &&
-          typeof meta?.yStart === 'number' &&
-          typeof meta?.yEnd === 'number'
-        ) {
-          positions.set(step.targetId, {
-            x: meta.xStart + (meta.xEnd - meta.xStart) * stepProgress,
-            y: meta.yStart + (meta.yEnd - meta.yStart) * stepProgress,
-          });
-        }
-      }
-      phaseStart += phaseDuration;
-    }
-    return positions;
-  });
-
-  const fadeInState = $derived.by(() => {
-    const positions = new Map<string, { x: number; y: number }>();
-    const scales = new Map<string, number>();
-    if (!scene) return { positions, scales };
-
-    const mobjects = flattenSceneMobjects(scene.mobjects);
-    const byId = new Map(mobjects.map((mobject) => [mobject.id, mobject]));
-    const stepsByPhase = scene.timeline.reduce((phases, step) => {
-      const group = phases.get(step.phase) ?? [];
-      group.push(step);
-      phases.set(step.phase, group);
-      return phases;
-    }, new Map<number, typeof scene.timeline>());
-    let phaseStart = 0;
-
-    for (const phase of [...stepsByPhase.keys()].sort((a, b) => a - b)) {
-      const steps = stepsByPhase.get(phase) ?? [];
-      const phaseDuration = steps.reduce(
-        (maxMs, step) => Math.max(maxMs, step.runTime),
-        0
-      );
-
-      for (const step of steps) {
-        if (step.kind !== 'fadeIn' && step.kind !== 'transform') continue;
-        if (!step.targetId) continue;
-        const mobject = byId.get(step.targetId);
-        if (!mobject) continue;
-        const raw = (intrinsicTimeSec - phaseStart) / step.runTime;
-        const progress = Math.max(0, Math.min(1, raw));
-        const meta = step.meta;
-        const endX = mobject.x ?? 0;
-        const endY = mobject.y ?? 0;
-        let startX = endX;
-        let startY = endY;
-
-        if (step.kind === 'fadeIn') {
-          if (
-            typeof meta?.fadeInTargetX === 'number' &&
-            typeof meta?.fadeInTargetY === 'number'
-          ) {
-            startX = meta.fadeInTargetX;
-            startY = meta.fadeInTargetY;
-          }
-          if (typeof meta?.fadeInShiftX === 'number') {
-            startX += meta.fadeInShiftX;
-          }
-          if (typeof meta?.fadeInShiftY === 'number') {
-            startY += meta.fadeInShiftY;
-          }
-        }
-
-        positions.set(step.targetId, {
-          x: startX + (endX - startX) * progress,
-          y: startY + (endY - startY) * progress
-        });
-
-        const startScale = typeof meta?.fadeInScale === 'number'
-          ? meta.fadeInScale
-          : typeof meta?.scaleStart === 'number'
-            ? meta.scaleStart
-            : 1;
-        const endScale = typeof meta?.scaleEnd === 'number' ? meta.scaleEnd : 1;
-        scales.set(step.targetId, startScale + (endScale - startScale) * progress);
-      }
-
-      phaseStart += phaseDuration;
-    }
-
-    return { positions, scales };
-  });
-
-  const stagePositionsById = $derived.by(() => {
-    const positions = new Map(positionsById);
-    for (const [id, point] of fadeInState.positions) {
-      positions.set(id, point);
-    }
-    return positions;
-  });
+  );
 
   function dispatch(command: TimelineCommand): void {
     timeline = reduceTimelineState(timeline, command);
@@ -886,14 +632,12 @@
 {#if captureMode}
   <section class="h-full">
     {#if scene}
-                  <TsSceneStage
-                    mobjects={flattenSceneMobjects(scene.mobjects)}
-                    {progressById}
-                    positionsById={stagePositionsById}
-                    scaleById={fadeInState.scales}
-                    replacements={replacementState.active}
-                    completedReplacementSources={replacementState.completedSources}
-                    completedReplacementTargets={replacementState.completedTargets}
+      <TsSceneStage
+        mobjects={evaluatedScene.mobjects}
+        progressById={evaluatedScene.progressById}
+        replacements={evaluatedScene.replacements}
+        completedReplacementSources={evaluatedScene.completedReplacementSources}
+        completedReplacementTargets={evaluatedScene.completedReplacementTargets}
       />
     {:else if !sceneResolved}
       <div class="h-full rounded-xl border border-slate-800 bg-slate-950"></div>
@@ -1043,13 +787,11 @@
 
             {#if scene}
               <TsSceneStage
-                mobjects={flattenSceneMobjects(scene.mobjects)}
-                {progressById}
-                positionsById={stagePositionsById}
-                scaleById={fadeInState.scales}
-                replacements={replacementState.active}
-                completedReplacementSources={replacementState.completedSources}
-                completedReplacementTargets={replacementState.completedTargets}
+                mobjects={evaluatedScene.mobjects}
+                progressById={evaluatedScene.progressById}
+                replacements={evaluatedScene.replacements}
+                completedReplacementSources={evaluatedScene.completedReplacementSources}
+                completedReplacementTargets={evaluatedScene.completedReplacementTargets}
               />
               <aside
                 class="rounded-xl border border-slate-800 bg-slate-900/60 p-4"

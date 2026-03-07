@@ -17,6 +17,9 @@
   hide missing parity with scene-specific patches.
 - If full parity is not yet practical, note the next required library step
   toward parity in your handoff or final response.
+- Keep `TS-SWEEP-PARITY.md` up to date whenever Manim parity status
+  changes, especially after `manim-api.ts`, preview runtime, or TS sweep
+  scene changes that affect parity claims.
 
 ## Svelte 5 directives
 

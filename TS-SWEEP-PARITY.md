@@ -128,6 +128,17 @@ surface and the current Svelte preview renderer.
   Now adds only the start expression before playing
   `TransformMatchingTex`, matching the original scene structure.
 
+### 04 `updaters_and_always_redraw`
+
+- Python: [`py/04_updaters_and_always_redraw.py`](/Users/cog/mine/dlx_sv/py/04_updaters_and_always_redraw.py)
+- TS: [`updatersAlwaysRedraw.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/updatersAlwaysRedraw.ts)
+- Status: `Parity`
+- Notes:
+  The TS scene now uses `ValueTracker`, `add_updater(...)`, and
+  `always_redraw(...)` in the same model as the Python original, and the
+  preview runtime reevaluates tracker-driven updaters and redraw
+  factories during playback.
+
 ## Partial
 
 ### 03 `rate_functions_and_timing`
@@ -164,16 +175,6 @@ surface and the current Svelte preview renderer.
 
 ## Not In Parity
 
-### 04 `updaters_and_always_redraw`
-
-- Python: [`py/04_updaters_and_always_redraw.py`](/Users/cog/mine/dlx_sv/py/04_updaters_and_always_redraw.py)
-- TS: [`updatersAlwaysRedraw.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/updatersAlwaysRedraw.ts)
-- Status: `Not in parity`
-- Missing:
-  Real updater reevaluation during timeline playback, `ValueTracker`
-  interpolation over time, and `always_redraw(...)` recomputation on
-  every frame are still missing from the preview runtime.
-
 ### 08 `camera_and_3d`
 
 - Python: [`py/08_camera_and_3d.py`](/Users/cog/mine/dlx_sv/py/08_camera_and_3d.py)
@@ -209,14 +210,17 @@ in [`manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts):
 - Broader `.animate` support for key mutator methods
 - Supporting primitives:
   `Text`, `Axes`, `SVGMobject`, `ValueTracker`, `always_redraw`
+- Preview-time evaluation:
+  `evaluateSceneAtTime(...)` now reapplies base scene state, interpolates
+  tracker/value animations, runs mobject updaters, and refreshes
+  `always_redraw(...)` factories for the current frame
 
 ## Remaining High-Value Gaps
 
 If the next goal is to move more of the partial/non-parity scenes into
 full parity, the highest-value missing pieces are:
 
-1. Real updater execution during preview playback.
-2. Rate-function support in timeline interpolation.
-3. Proper `Axes` features beyond a two-line skeleton.
-4. Real asset-backed SVG loading inputs.
-5. 3D scene, camera, and renderer integration.
+1. Rate-function support in timeline interpolation.
+2. Proper `Axes` features beyond a two-line skeleton.
+3. Real asset-backed SVG loading inputs.
+4. 3D scene, camera, and renderer integration.

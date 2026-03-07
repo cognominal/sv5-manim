@@ -1,44 +1,34 @@
 import {
-  Create,
+  ValueTracker,
+  always_redraw,
   Dot,
   Line,
-  MoveAlongPath,
   Scene
 } from '$lib/manim';
 
 export function buildUpdatersAlwaysRedrawScene(): Scene {
   const scene = new Scene(1);
+  const tracker = new ValueTracker(-3);
+  const moving = Dot('moving', {
+    color: '#F72585'
+  });
+  moving.add_updater?.((mobject) => {
+    mobject.set_x?.(tracker.get_value());
+  });
   const baseline = Line([-3, 0, 0], [3, 0, 0], {
     id: 'baseline',
     color: '#999',
     strokeWidth: 6
   });
-  const moving = Dot('moving', {
-    x: 160,
-    y: 240,
-    color: '#F72585'
-  });
-  const tether = Line([0, 0, 0], [-3, 0, 0], {
-    id: 'tether',
-    color: '#4CC9F0',
-    strokeWidth: 6
-  });
-  const track = Line([-3, 0, 0], [3, 0, 0], {
-    id: 'track',
-    color: '#00000000',
-    strokeWidth: 1
-  });
-  const tetherEnd = Line([0, 0, 0], [3, 0, 0], {
-    id: 'tether_end',
-    color: '#4CC9F0',
-    strokeWidth: 6
-  });
-
-  scene.add(baseline, tether, moving, track, tetherEnd);
-  scene.play(Create(baseline), Create(tether), Create(moving));
-  scene.play(
-    MoveAlongPath(moving, track, { runTime: 2 }),
-    tether.animate?.become(tetherEnd, { runTime: 2 }) ?? Create(tetherEnd)
+  const tether = always_redraw(() =>
+    Line([0, 0, 0], moving.get_center?.() ?? [0, 0, 0], {
+      id: 'tether',
+      color: '#4CC9F0',
+      strokeWidth: 6
+    })
   );
+
+  scene.add(baseline, tether, moving);
+  scene.play(tracker.animate.set_value(3, { runTime: 2 }));
   return scene;
 }

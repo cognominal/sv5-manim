@@ -48,6 +48,7 @@ export type Mobject = {
   children?: Mobject[];
   token?: string;
   updaters?: Updater[];
+  alwaysRedrawFactory?: () => Mobject;
   savedState?: Partial<Mobject>;
   target?: Mobject;
   animate?: AnimateBuilder;
@@ -147,9 +148,10 @@ export type Animation = {
   targetId?: string;
   sourceId?: string;
   pathId?: string;
+  tracker?: ValueTracker;
   runTime: number;
   phase: number;
-  meta?: Record<string, string | number | boolean | null | undefined>;
+  meta?: Record<string, unknown>;
 };
 
 type PendingAnimation =
@@ -167,6 +169,7 @@ export type ScenePhase = {
 export class Scene {
   private defaultCreateSec: number;
   private phase = 0;
+  private baseMobjects = new Map<string, Mobject>();
   mobjects: Mobject[] = [];
   foregroundMobjects: Mobject[] = [];
   sections: string[] = [];
@@ -177,6 +180,7 @@ export class Scene {
   }
 
   add(...mobjects: Mobject[]): void {
+    this.rememberBaseMobjects(mobjects);
     this.mobjects.push(...mobjects);
   }
 
@@ -225,6 +229,7 @@ export class Scene {
   }
 
   addForegroundMobject(...mobjects: Mobject[]): void {
+    this.rememberBaseMobjects(mobjects);
     this.foregroundMobjects.push(...mobjects);
   }
 
@@ -299,13 +304,27 @@ export class Scene {
   render(): Scene {
     return this;
   }
+
+  getBaseMobject(id: string): Mobject | undefined {
+    return this.baseMobjects.get(id);
+  }
+
+  rememberBaseMobjects(mobjects: Mobject[]): void {
+    for (const mobject of flattenSceneMobjects(mobjects)) {
+      if (!this.baseMobjects.has(mobject.id)) {
+        this.baseMobjects.set(mobject.id, cloneMobject(mobject, mobject.id));
+      }
+    }
+  }
 }
 
 export class ValueTracker {
+  readonly id: string;
   value: number;
   animate: AnimateBuilder;
 
   constructor(value: number) {
+    this.id = autoId('value_tracker');
     this.value = value;
     this.animate = {
       become: () => Wait(0),
@@ -345,6 +364,7 @@ export class ValueTracker {
     this.value = value;
     return {
       kind: 'value',
+      tracker: this,
       runTime: opts?.runTime,
       meta: {
         valueStart: start,
@@ -565,6 +585,31 @@ function cloneMobject(mobject: Mobject, forcedId?: string): Mobject {
     animate: undefined,
   };
   return attachMobjectApi(clone);
+}
+
+function restoreMobject(target: Mobject, source: Mobject): void {
+  const restored = cloneMobject(source, source.id);
+  for (const key of Object.keys(target) as Array<keyof Mobject>) {
+    if (!(key in restored)) {
+      delete target[key];
+    }
+  }
+  Object.assign(target, restored);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function parsePointsMeta(value: unknown): Point[] | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value) as Point[];
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map((point) => ({ x: point.x, y: point.y }));
+  } catch {
+    return null;
+  }
 }
 
 function snapshotMeta(mobject: Mobject): Animation['meta'] {
@@ -1085,6 +1130,284 @@ export function scenePhases(scene: Scene): ScenePhase[] {
 
 export function sceneDurationSec(scene: Scene): number {
   return scenePhases(scene).reduce((sum, phase) => sum + phase.durationSec, 0);
+}
+
+export type EvaluatedSceneState = {
+  mobjects: Mobject[];
+  progressById: Map<string, number>;
+  replacements: Array<{
+    sourceId: string;
+    targetId: string;
+    progress: number;
+  }>;
+  completedReplacementSources: Set<string>;
+  completedReplacementTargets: Set<string>;
+};
+
+function applyAnimationToMobject(
+  step: Animation,
+  mobject: Mobject,
+  progress: number,
+  pathLookup: Map<string, Mobject>
+): void {
+  if (step.kind === 'moveAlongPath' && step.pathId) {
+    const path = pathLookup.get(step.pathId);
+    if (path?.points && path.points.length >= 2) {
+      const at = pointAlongPath(path.points, progress);
+      mobject.moveTo?.(at);
+    }
+    return;
+  }
+
+  if (step.kind !== 'transform') return;
+  const meta = step.meta;
+  if (
+    typeof meta?.xStart === 'number' &&
+    typeof meta?.xEnd === 'number' &&
+    typeof meta?.yStart === 'number' &&
+    typeof meta?.yEnd === 'number'
+  ) {
+    mobject.moveTo?.({
+      x: lerp(meta.xStart, meta.xEnd, progress),
+      y: lerp(meta.yStart, meta.yEnd, progress)
+    });
+  }
+  if (
+    typeof meta?.opacityStart === 'number' &&
+    typeof meta?.opacityEnd === 'number'
+  ) {
+    mobject.opacity = lerp(meta.opacityStart, meta.opacityEnd, progress);
+  }
+  if (
+    typeof meta?.scaleStart === 'number' &&
+    typeof meta?.scaleEnd === 'number'
+  ) {
+    mobject.scaleFactor = lerp(meta.scaleStart, meta.scaleEnd, progress);
+  }
+  if (
+    typeof meta?.rotationStart === 'number' &&
+    typeof meta?.rotationEnd === 'number'
+  ) {
+    mobject.rotation = lerp(meta.rotationStart, meta.rotationEnd, progress);
+  }
+  if (
+    typeof meta?.zIndexStart === 'number' &&
+    typeof meta?.zIndexEnd === 'number'
+  ) {
+    mobject.zIndex = lerp(meta.zIndexStart, meta.zIndexEnd, progress);
+  }
+  if (
+    typeof meta?.sizeStart === 'number' &&
+    typeof meta?.sizeEnd === 'number'
+  ) {
+    mobject.size = lerp(meta.sizeStart, meta.sizeEnd, progress);
+  }
+  if (
+    typeof meta?.radiusStart === 'number' &&
+    typeof meta?.radiusEnd === 'number'
+  ) {
+    mobject.radius = lerp(meta.radiusStart, meta.radiusEnd, progress);
+  }
+  if (
+    typeof meta?.strokeStart === 'string' &&
+    progress < 1
+  ) {
+    mobject.stroke = meta.strokeStart;
+  }
+  if (
+    typeof meta?.strokeEnd === 'string' &&
+    progress >= 1
+  ) {
+    mobject.stroke = meta.strokeEnd;
+  }
+  if (
+    typeof meta?.fillStart === 'string' &&
+    progress < 1
+  ) {
+    mobject.fill = meta.fillStart;
+  }
+  if (
+    typeof meta?.fillEnd === 'string' &&
+    progress >= 1
+  ) {
+    mobject.fill = meta.fillEnd;
+  }
+  const startPoints = parsePointsMeta(meta?.pointsStart);
+  const endPoints = parsePointsMeta(meta?.pointsEnd);
+  if (
+    startPoints &&
+    endPoints &&
+    startPoints.length === endPoints.length
+  ) {
+    mobject.points = startPoints.map((point, index) => ({
+      x: lerp(point.x, endPoints[index]?.x ?? point.x, progress),
+      y: lerp(point.y, endPoints[index]?.y ?? point.y, progress),
+    }));
+  }
+}
+
+function pointAlongPath(points: Point[], t: number): Point {
+  if (points.length === 0) return { x: 0, y: 0 };
+  if (points.length === 1) return points[0];
+  const clamped = Math.max(0, Math.min(1, t));
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += Math.hypot(
+      points[i].x - points[i - 1].x,
+      points[i].y - points[i - 1].y
+    );
+  }
+  if (total <= 0) return points[0];
+  const target = total * clamped;
+  let acc = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const b = points[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (acc + len >= target) {
+      const local = len > 0 ? (target - acc) / len : 0;
+      return {
+        x: lerp(a.x, b.x, local),
+        y: lerp(a.y, b.y, local)
+      };
+    }
+    acc += len;
+  }
+  return points[points.length - 1];
+}
+
+function runUpdaters(mobject: Mobject): void {
+  for (const child of mobject.children ?? []) {
+    runUpdaters(child);
+  }
+  for (const updater of mobject.updaters ?? []) {
+    updater(mobject);
+  }
+}
+
+function refreshAlwaysRedraw(mobject: Mobject): void {
+  for (const child of mobject.children ?? []) {
+    refreshAlwaysRedraw(child);
+  }
+  if (!mobject.alwaysRedrawFactory) return;
+  const next = mobject.alwaysRedrawFactory();
+  const stableId = mobject.id;
+  restoreMobject(mobject, cloneMobject(next, stableId));
+}
+
+export function evaluateSceneAtTime(
+  scene: Scene,
+  timeSec: number
+): EvaluatedSceneState {
+  const introKinds = new Set(['create', 'fadeIn']);
+  const progressById = new Map<string, number>();
+  const replacements: EvaluatedSceneState['replacements'] = [];
+  const completedReplacementSources = new Set<string>();
+  const completedReplacementTargets = new Set<string>();
+  const topLevel = [...scene.mobjects, ...scene.foregroundMobjects];
+  const topLevelIds = new Set(topLevel.map((mobject) => mobject.id));
+
+  for (const mobject of topLevel) {
+    const snapshot = scene.getBaseMobject(mobject.id);
+    if (snapshot) restoreMobject(mobject, snapshot);
+  }
+
+  for (const mobject of flattenSceneMobjects(scene.mobjects)) {
+    progressById.set(mobject.id, 1);
+  }
+  for (const step of scene.timeline) {
+    if (step.targetId && introKinds.has(step.kind)) {
+      progressById.set(step.targetId, 0);
+    }
+  }
+
+  const phases = scenePhases(scene);
+  const pathLookup = new Map(
+    flattenSceneMobjects(scene.mobjects).map((mobject) => [mobject.id, mobject])
+  );
+
+  let phaseStart = 0;
+  for (const phase of phases) {
+    const phaseEnd = phaseStart + phase.durationSec;
+    const phaseProgress = phase.durationSec > 0
+      ? Math.max(0, Math.min(1, (timeSec - phaseStart) / phase.durationSec))
+      : 1;
+    if (timeSec < phaseStart) break;
+
+    for (const step of phase.animations) {
+      const stepProgress = step.runTime > 0
+        ? Math.max(0, Math.min(1, (timeSec - phaseStart) / step.runTime))
+        : 1;
+
+      if (step.kind === 'value' && step.tracker) {
+        const start = typeof step.meta?.valueStart === 'number'
+          ? step.meta.valueStart
+          : step.tracker.value;
+        const end = typeof step.meta?.valueEnd === 'number'
+          ? step.meta.valueEnd
+          : start;
+        if (timeSec >= phaseStart) {
+          step.tracker.value = lerp(start, end, stepProgress);
+        }
+        continue;
+      }
+
+      if (step.kind === 'replacementTransform') {
+        if (step.sourceId && step.targetId) {
+          if (stepProgress > 0 && stepProgress < 1) {
+            replacements.push({
+              sourceId: step.sourceId,
+              targetId: step.targetId,
+              progress: stepProgress
+            });
+          }
+          if (stepProgress >= 1) {
+            completedReplacementSources.add(step.sourceId);
+            completedReplacementTargets.add(step.targetId);
+            progressById.set(step.targetId, 1);
+          }
+        }
+        continue;
+      }
+
+      if (step.targetId) {
+        const target = pathLookup.get(step.targetId);
+        if (step.kind === 'create' || step.kind === 'fadeIn') {
+          progressById.set(step.targetId, stepProgress);
+        } else if (step.kind === 'fadeOut') {
+          progressById.set(step.targetId, Math.max(0, 1 - stepProgress));
+        }
+        if (target && step.kind !== 'create' && step.kind !== 'fadeIn') {
+          applyAnimationToMobject(step, target, stepProgress, pathLookup);
+        }
+      }
+    }
+
+    if (timeSec <= phaseEnd) {
+      break;
+    }
+    phaseStart = phaseEnd;
+    void phaseProgress;
+  }
+
+  for (const mobject of scene.mobjects) {
+    runUpdaters(mobject);
+  }
+  for (const mobject of scene.mobjects) {
+    refreshAlwaysRedraw(mobject);
+  }
+
+  const evaluated = [
+    ...scene.mobjects,
+    ...scene.foregroundMobjects.filter((mobject) => !topLevelIds.has(mobject.id))
+  ];
+  return {
+    mobjects: flattenSceneMobjects(evaluated),
+    progressById,
+    replacements,
+    completedReplacementSources,
+    completedReplacementTargets,
+  };
 }
 
 export function phaseIndexAtTime(scene: Scene, timeSec: number): number {
@@ -2076,7 +2399,12 @@ export function SVGMobject(
 }
 
 export function always_redraw(factory: () => Mobject): Mobject {
-  return factory();
+  const initial = factory();
+  initial.alwaysRedrawFactory = () => {
+    const next = factory();
+    return cloneMobject(next, initial.id);
+  };
+  return initial;
 }
 
 export function SurroundingRectangle(
