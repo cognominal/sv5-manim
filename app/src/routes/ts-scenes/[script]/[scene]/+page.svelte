@@ -49,6 +49,7 @@
   let mp4Lang = $state<'ts' | 'py'>('ts');
   let mp4Profile = $state<'lowres' | 'medres' | 'hires'>('medres');
   let mp4Checked = $state(false);
+  let mp4VideoEl = $state<HTMLVideoElement | null>(null);
   let mp4Status = $state<{
     exists: boolean;
     upToDate: boolean;
@@ -89,7 +90,11 @@
   const layoutStorageKey = $derived(
     `ts-scene-layout:v1:${data.script.id}:${data.scene.id}`
   );
+  const mp4PrefsStorageKey = $derived(
+    `ts-scene-mp4-prefs:v1:${data.script.id}:${data.scene.id}`
+  );
   let layoutRestoredKey = $state('');
+  let mp4PrefsRestoredKey = $state('');
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
 
@@ -446,6 +451,35 @@
     }
   }
 
+  function restoreMp4PrefsFromStorage(): void {
+    if (!browser || captureMode) return;
+    const raw = localStorage.getItem(mp4PrefsStorageKey);
+    if (!raw) {
+      mp4PrefsRestoredKey = mp4PrefsStorageKey;
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        lang?: 'ts' | 'py';
+        profile?: 'lowres' | 'medres' | 'hires';
+      };
+      if (parsed.lang === 'ts' || parsed.lang === 'py') {
+        mp4Lang = parsed.lang;
+      }
+      if (
+        parsed.profile === 'lowres' ||
+        parsed.profile === 'medres' ||
+        parsed.profile === 'hires'
+      ) {
+        mp4Profile = parsed.profile;
+      }
+    } catch {
+      // Ignore malformed persisted MP4 preferences.
+    } finally {
+      mp4PrefsRestoredKey = mp4PrefsStorageKey;
+    }
+  }
+
   $effect(() => {
     if (!browser || captureMode) return;
     document.documentElement.style.setProperty('--ts-left-pane', mainSplitPos);
@@ -460,6 +494,13 @@
 
   $effect(() => {
     if (!browser || captureMode) return;
+    mp4PrefsStorageKey;
+    if (mp4PrefsRestoredKey === mp4PrefsStorageKey) return;
+    restoreMp4PrefsFromStorage();
+  });
+
+  $effect(() => {
+    if (!browser || captureMode) return;
     if (layoutRestoredKey !== layoutStorageKey) return;
     const payload = {
       viewportWidth: window.innerWidth,
@@ -468,6 +509,16 @@
       codeSplitPos,
     };
     localStorage.setItem(layoutStorageKey, JSON.stringify(payload));
+  });
+
+  $effect(() => {
+    if (!browser || captureMode) return;
+    if (mp4PrefsRestoredKey !== mp4PrefsStorageKey) return;
+    const payload = {
+      lang: mp4Lang,
+      profile: mp4Profile,
+    };
+    localStorage.setItem(mp4PrefsStorageKey, JSON.stringify(payload));
   });
 
   onDestroy(() => {
@@ -483,6 +534,7 @@
     saveState = 'idle';
     saveMessage = '';
     restoreLayoutFromStorage();
+    restoreMp4PrefsFromStorage();
   });
 
   const tsIsDirty = $derived(tsEditorText !== tsBaseText);
@@ -737,6 +789,13 @@
     exportReport = null;
   }
 
+  function onMp4LoadedMetadata(): void {
+    if (!browser || captureMode || !mp4VideoEl) return;
+    void mp4VideoEl.play().catch(() => {
+      // Ignore autoplay rejections; controls remain available.
+    });
+  }
+
   function onGlobalPointerDown(event: PointerEvent): void {
     if (!exportReport) return;
     const target = event.target;
@@ -967,9 +1026,14 @@
                 <p class="text-sm text-slate-400">Checking MP4 status...</p>
               {:else if mp4Status?.upToDate}
                 <video
+                  bind:this={mp4VideoEl}
                   class="w-full rounded-lg border border-slate-700 bg-black"
                   src={mp4Status.playbackUrl}
+                  autoplay
                   controls
+                  muted
+                  onloadedmetadata={onMp4LoadedMetadata}
+                  playsinline
                   preload="metadata"
                 >
                   <track
