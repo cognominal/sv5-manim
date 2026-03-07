@@ -263,6 +263,7 @@ export class Scene {
         root &&
         (animation.kind === 'create' || animation.kind === 'fadeIn') &&
         !introduced.has(root.id) &&
+        !this.mobjects.some((mobject) => mobject.id === root.id) &&
         !flattenMobjects(this.mobjects).some((mobject) => mobject.id === root.id)
       ) {
         this.add(root);
@@ -2377,20 +2378,95 @@ export function Axes(opts?: {
   color?: Color;
   strokeWidth?: number;
 }): Mobject {
+  function buildAxisTicks(
+    axisId: string,
+    axis: 'x' | 'y',
+    range: [number, number, number?],
+    color: Color,
+    strokeWidth: number
+  ): Mobject[] {
+    const [min, max, rawStep] = range;
+    const step = rawStep ?? 1;
+    if (step <= 0) return [];
+    const ticks: Mobject[] = [];
+    const epsilon = 1e-9;
+    const labelOffsetPx = 28;
+    const tickHalfSizePx = 8;
+
+    for (
+      let value = min;
+      value <= max + epsilon;
+      value = Number((value + step).toFixed(9))
+    ) {
+      if (Math.abs(value) <= epsilon) continue;
+      if (axis === 'x') {
+        const x = fromPointLike([value, 0, 0]).x;
+        ticks.push(
+          Line(
+            { x, y: CENTER_Y - tickHalfSizePx },
+            { x, y: CENTER_Y + tickHalfSizePx },
+            {
+              id: `${axisId}_tick_${String(value).replace('.', '_')}`,
+              color,
+              strokeWidth,
+            }
+          )
+        );
+        ticks.push(
+          Text(String(value), {
+            id: `${axisId}_label_${String(value).replace('.', '_')}`,
+            x,
+            y: CENTER_Y + labelOffsetPx,
+            fill: color,
+            fontSize: 20,
+          })
+        );
+        continue;
+      }
+
+      const y = fromPointLike([0, value, 0]).y;
+      ticks.push(
+        Line(
+          { x: CENTER_X - tickHalfSizePx, y },
+          { x: CENTER_X + tickHalfSizePx, y },
+          {
+            id: `${axisId}_tick_${String(value).replace('.', '_')}`,
+            color,
+            strokeWidth,
+          }
+        )
+      );
+      ticks.push(
+        Text(String(value), {
+          id: `${axisId}_label_${String(value).replace('.', '_')}`,
+          x: CENTER_X - labelOffsetPx,
+          y,
+          fill: color,
+          fontSize: 20,
+        })
+      );
+    }
+    return ticks;
+  }
+
   const xRange = opts?.xRange ?? [-4, 4, 1];
   const yRange = opts?.yRange ?? [-3, 3, 1];
   const color = opts?.color ?? '#e2e8f0';
+  const strokeWidth = opts?.strokeWidth ?? 4;
+  const id = opts?.id ?? autoId('axes');
   const xAxis = Line([xRange[0], 0, 0], [xRange[1], 0, 0], {
-    id: `${opts?.id ?? 'axes'}_x`,
+    id: `${id}_x`,
     color,
-    strokeWidth: opts?.strokeWidth ?? 4,
+    strokeWidth,
   });
   const yAxis = Line([0, yRange[0], 0], [0, yRange[1], 0], {
-    id: `${opts?.id ?? 'axes'}_y`,
+    id: `${id}_y`,
     color,
-    strokeWidth: opts?.strokeWidth ?? 4,
+    strokeWidth,
   });
-  const axes = VGroup(opts?.id ?? autoId('axes'), xAxis, yAxis);
+  const xTicks = buildAxisTicks(`${id}_x`, 'x', xRange, color, strokeWidth);
+  const yTicks = buildAxisTicks(`${id}_y`, 'y', yRange, color, strokeWidth);
+  const axes = VGroup(id, xAxis, yAxis, ...xTicks, ...yTicks);
   axes.plot = (
     fn: (x: number) => number,
     plotOpts?: { id?: string; color?: Color; strokeWidth?: number; samples?: number }

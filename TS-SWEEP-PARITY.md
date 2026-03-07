@@ -149,17 +149,17 @@ surface and the current Svelte preview renderer.
   `dot.animate.shift(...)` motion, and the preview runtime applies the
   configured rate function during interpolation.
 
-## Partial
-
 ### 06 `axes_graphs_and_plotting`
 
 - Python: [`py/06_axes_graphs_and_plotting.py`](/Users/cog/mine/dlx_sv/py/06_axes_graphs_and_plotting.py)
 - TS: [`axesGraphsPlotting.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/axesGraphsPlotting.ts)
-- Status: `Partial`
-- Missing:
-  The new `Axes` primitive currently covers the two main axes and a
-  `plot(...)` helper, but it does not yet model real Manim CE ticks,
-  labels, scaling, or axis styling.
+- Status: `Parity`
+- Notes:
+  The local `Axes` primitive now renders axis lines with tick marks and
+  numeric labels derived from `x_range` / `y_range`, and the TS scene
+  continues to use the matching `axes.plot(...)` graph model.
+
+## Partial
 
 ### 10 `images_svg_and_assets`
 
@@ -217,12 +217,14 @@ in [`manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts):
 - Rate-function interpolation:
   animation evaluation now respects configured `rate_func` / `rateFunc`
   values, including `there_and_back`
+- Axes rendering:
+  `Axes(...)` now builds tick marks and numeric labels from axis ranges
+  instead of only returning the two main axis lines
 
 ## Remaining High-Value Gaps
 
 If the next goal is to move more of the partial/non-parity scenes into
 full parity, the highest-value missing pieces are:
 
-1. Proper `Axes` features beyond a two-line skeleton.
-2. Real asset-backed SVG loading inputs.
-3. 3D scene, camera, and renderer integration.
+1. Real asset-backed SVG loading inputs.
+2. 3D scene, camera, and renderer integration.
