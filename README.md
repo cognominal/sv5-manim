@@ -20,33 +20,44 @@ But we have reached a step where incremental work becomes easier
 
 We created a UI to show
 
-- py side : the original .py file, the resulting .mp4 generated,
-- ts side : the .ts file, the interactive scene (now just time warp with a
-slider), the resulting .mp4 generated.
-- the ts code mirror pane is writable so we can experiment without asking codex.
+- `py` side : the original `.py` file, the resulting `.mp4` generated,
+- `ts` side : the .ts file, the interactive scene (now just time warp with a
+slider), the resulting `.mp4` generated.
+- the `ts` code mirror pane is writable so we can experiment without asking codex.
+
+State is saved browser side. Panes size, position in codemirror pane...
+At each reload after a change we restart where we left of.
 
 ### getting something minimal
 
-As a first stages, we try to get feature parity from some random .py manim files
+As a first stages, we try to get feature parity from some random `.py` manim files
 codex lifted from somewhere or created out of whole cloth and the
 ts imanim files created from that.
 
 Note that with ts, the real deliverable will be a route in a sveltekit app.
+
+Added [geometryTextPrimitives](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/geometryTextPrimitives.ts).
+Getting to a point we can think supporting  a notebook system.
 
 ## notebook system
 
 Stage : TBD
 
 We want a notebook system where nodes are versioned.
-Node can depend on each other.
-Manim goal is to generate .mp4 videos.
+Nodes can depend on each other.
+Manim goal is to generate .mp4 videos in virtual screens
+of fixed size, we want to interact with scenes
+in svelte component.
+So we want to adapt the API to a new context.
 
+## Adaptive strategy
 
-## disclaimer
-
-I have zero knowledge of manim and very little of python. So I blindly
-relied in codex to start with. Now I am trying to get some control and
-agency.
+I had  zero knowledge of manim and very little of python. So I blindly
+relied in codex to start with.
+Also I explore(d) what is possible with gpt.
+Now I am trying to get some control and
+agency because I don't want to blindly replicate a `.py` in `.ps` but
+adapt it to the sveltkit context.
 
 In this repo we don't yet try to get a studio.
 

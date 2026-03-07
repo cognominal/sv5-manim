@@ -17,7 +17,9 @@
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
   import SplitPane from '$lib/vendor/rich-split-pane/SplitPane.svelte';
   import type { Length } from '$lib/vendor/rich-split-pane/types';
-  import ReadOnlyCodeMirror from '$lib/components/ReadOnlyCodeMirror.svelte';
+  import ReadOnlyCodeMirror, {
+    type CodeMirrorViewState
+  } from '$lib/components/ReadOnlyCodeMirror.svelte';
   import { pyDurationSecFor } from '$lib/ts-feature-sweep/py-duration-ms';
   import { sceneBuilderFor } from '$lib/ts-feature-sweep/registry';
   import { onDestroy, onMount } from 'svelte';
@@ -79,6 +81,8 @@
   let tsSourceMtimeMs = $state<number | null>(null);
   let saveState = $state<'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'>('idle');
   let saveMessage = $state('');
+  let pyEditorViewState = $state<CodeMirrorViewState | null>(null);
+  let tsEditorViewState = $state<CodeMirrorViewState | null>(null);
 
   let scene = $state<Scene | null>(null);
   let sceneResolved = $state(false);
@@ -93,8 +97,12 @@
   const mp4PrefsStorageKey = $derived(
     `ts-scene-mp4-prefs:v1:${data.script.id}:${data.scene.id}`
   );
+  const codeMirrorStorageKey = $derived(
+    `ts-scene-codemirror:v1:${data.script.id}:${data.scene.id}`
+  );
   let layoutRestoredKey = $state('');
   let mp4PrefsRestoredKey = $state('');
+  let codeMirrorRestoredKey = $state('');
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
 
@@ -480,6 +488,27 @@
     }
   }
 
+  function restoreCodeMirrorStateFromStorage(): void {
+    if (!browser || captureMode) return;
+    const raw = localStorage.getItem(codeMirrorStorageKey);
+    if (!raw) {
+      codeMirrorRestoredKey = codeMirrorStorageKey;
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        py?: CodeMirrorViewState | null;
+        ts?: CodeMirrorViewState | null;
+      };
+      pyEditorViewState = parsed.py ?? null;
+      tsEditorViewState = parsed.ts ?? null;
+    } catch {
+      // Ignore malformed persisted editor state.
+    } finally {
+      codeMirrorRestoredKey = codeMirrorStorageKey;
+    }
+  }
+
   $effect(() => {
     if (!browser || captureMode) return;
     document.documentElement.style.setProperty('--ts-left-pane', mainSplitPos);
@@ -497,6 +526,13 @@
     mp4PrefsStorageKey;
     if (mp4PrefsRestoredKey === mp4PrefsStorageKey) return;
     restoreMp4PrefsFromStorage();
+  });
+
+  $effect(() => {
+    if (!browser || captureMode) return;
+    codeMirrorStorageKey;
+    if (codeMirrorRestoredKey === codeMirrorStorageKey) return;
+    restoreCodeMirrorStateFromStorage();
   });
 
   $effect(() => {
@@ -521,6 +557,16 @@
     localStorage.setItem(mp4PrefsStorageKey, JSON.stringify(payload));
   });
 
+  $effect(() => {
+    if (!browser || captureMode) return;
+    if (codeMirrorRestoredKey !== codeMirrorStorageKey) return;
+    const payload = {
+      py: pyEditorViewState,
+      ts: tsEditorViewState,
+    };
+    localStorage.setItem(codeMirrorStorageKey, JSON.stringify(payload));
+  });
+
   onDestroy(() => {
     if (!browser) return;
     document.documentElement.style.removeProperty('--ts-left-pane');
@@ -535,6 +581,7 @@
     saveMessage = '';
     restoreLayoutFromStorage();
     restoreMp4PrefsFromStorage();
+    restoreCodeMirrorStateFromStorage();
   });
 
   const tsIsDirty = $derived(tsEditorText !== tsBaseText);
@@ -592,6 +639,14 @@
 
   function onTsEditorChange(next: string): void {
     tsEditorText = next;
+  }
+
+  function onPyEditorViewStateChange(next: CodeMirrorViewState): void {
+    pyEditorViewState = next;
+  }
+
+  function onTsEditorViewStateChange(next: CodeMirrorViewState): void {
+    tsEditorViewState = next;
   }
 
   function onModeChange(next: Mode): void {
@@ -1130,6 +1185,8 @@
                     value={data.pySourceText}
                     language="python"
                     heightClass="h-full"
+                    initialViewState={pyEditorViewState}
+                    onViewStateChange={onPyEditorViewStateChange}
                   />
                 {/key}
               </div>
@@ -1208,7 +1265,9 @@
                     language="typescript"
                     heightClass="h-full"
                     editable={true}
+                    initialViewState={tsEditorViewState}
                     onChange={onTsEditorChange}
+                    onViewStateChange={onTsEditorViewStateChange}
                   />
                 {/key}
               </div>

@@ -82,10 +82,9 @@ Use a layered test model similar to Manim CE:
 
 Reference material:
 
-- Manim CE testing guide:
-  https://docs.manim.community/en/stable/contributing/testing.html
-- Manim CE repository root:
-  https://github.com/ManimCommunity/manim
+- Manim CE [testing](https://docs.manim.community/en/stable/contributing/testing.html)
+  guide
+- Manim CE repository [root](https://github.com/ManimCommunity/manim)
 
 ## Current Status
 
