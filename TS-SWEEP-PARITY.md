@@ -139,17 +139,17 @@ surface and the current Svelte preview renderer.
   preview runtime reevaluates tracker-driven updaters and redraw
   factories during playback.
 
-## Partial
-
 ### 03 `rate_functions_and_timing`
 
 - Python: [`py/03_rate_functions_and_timing.py`](/Users/cog/mine/dlx_sv/py/03_rate_functions_and_timing.py)
 - TS: [`rateFunctionsTiming.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/rateFunctionsTiming.ts)
-- Status: `Partial`
-- Missing:
-  `rate_func` semantics are not yet modeled in the preview pipeline.
-  The scene now uses `dot.animate.shift(...)`, but motion timing is
-  still linear in the renderer.
+- Status: `Parity`
+- Notes:
+  The TS scene now uses `rate_func=there_and_back` on the matching
+  `dot.animate.shift(...)` motion, and the preview runtime applies the
+  configured rate function during interpolation.
+
+## Partial
 
 ### 06 `axes_graphs_and_plotting`
 
@@ -214,13 +214,15 @@ in [`manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts):
   `evaluateSceneAtTime(...)` now reapplies base scene state, interpolates
   tracker/value animations, runs mobject updaters, and refreshes
   `always_redraw(...)` factories for the current frame
+- Rate-function interpolation:
+  animation evaluation now respects configured `rate_func` / `rateFunc`
+  values, including `there_and_back`
 
 ## Remaining High-Value Gaps
 
 If the next goal is to move more of the partial/non-parity scenes into
 full parity, the highest-value missing pieces are:
 
-1. Rate-function support in timeline interpolation.
-2. Proper `Axes` features beyond a two-line skeleton.
-3. Real asset-backed SVG loading inputs.
-4. 3D scene, camera, and renderer integration.
+1. Proper `Axes` features beyond a two-line skeleton.
+2. Real asset-backed SVG loading inputs.
+3. 3D scene, camera, and renderer integration.

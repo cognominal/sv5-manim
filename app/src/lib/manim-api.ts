@@ -6,10 +6,11 @@ export type Point = { x: number; y: number };
 type Color = string;
 type PointLike = Point | [number, number, number?];
 type Updater = (mobject: Mobject) => Mobject | void;
+export type RateFunction = (t: number) => number;
 type AnimationOpts = {
   runTime?: number;
-  rateFunc?: string;
-  rate_func?: string;
+  rateFunc?: string | RateFunction;
+  rate_func?: string | RateFunction;
 };
 
 export type Mobject = {
@@ -149,6 +150,7 @@ export type Animation = {
   sourceId?: string;
   pathId?: string;
   tracker?: ValueTracker;
+  rateFunc?: string | RateFunction;
   runTime: number;
   phase: number;
   meta?: Record<string, unknown>;
@@ -365,6 +367,7 @@ export class ValueTracker {
     return {
       kind: 'value',
       tracker: this,
+      rateFunc: normalizeRateFunction(opts),
       runTime: opts?.runTime,
       meta: {
         valueStart: start,
@@ -595,10 +598,44 @@ function restoreMobject(target: Mobject, source: Mobject): void {
     }
   }
   Object.assign(target, restored);
+  attachMobjectApi(target);
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+export const linear: RateFunction = (t) => t;
+export const smooth: RateFunction = (t) =>
+  t * t * (3 - 2 * t);
+export const there_and_back: RateFunction = (t) =>
+  t < 0.5 ? smooth(t * 2) : smooth((1 - t) * 2);
+
+function rateFunctionByName(name: string): RateFunction {
+  switch (name) {
+    case 'linear':
+      return linear;
+    case 'smooth':
+      return smooth;
+    case 'there_and_back':
+      return there_and_back;
+    default:
+      return linear;
+  }
+}
+
+function resolveRateFunction(
+  value: string | RateFunction | undefined
+): RateFunction {
+  if (typeof value === 'function') return value;
+  if (typeof value === 'string') return rateFunctionByName(value);
+  return linear;
+}
+
+function normalizeRateFunction(
+  opts?: AnimationOpts
+): string | RateFunction | undefined {
+  return opts?.rate_func ?? opts?.rateFunc;
 }
 
 function parsePointsMeta(value: unknown): Point[] | null {
@@ -662,6 +699,7 @@ function transformAnimation(
   return {
     kind: 'transform',
     targetId: mobject.id,
+    rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime,
     meta: finalizeMeta(meta, mobject),
   };
@@ -1335,9 +1373,10 @@ export function evaluateSceneAtTime(
     if (timeSec < phaseStart) break;
 
     for (const step of phase.animations) {
-      const stepProgress = step.runTime > 0
+      const rawProgress = step.runTime > 0
         ? Math.max(0, Math.min(1, (timeSec - phaseStart) / step.runTime))
         : 1;
+      const stepProgress = resolveRateFunction(step.rateFunc)(rawProgress);
 
       if (step.kind === 'value' && step.tracker) {
         const start = typeof step.meta?.valueStart === 'number'
@@ -1402,7 +1441,9 @@ export function evaluateSceneAtTime(
     ...scene.foregroundMobjects.filter((mobject) => !topLevelIds.has(mobject.id))
   ];
   return {
-    mobjects: flattenSceneMobjects(evaluated),
+    mobjects: flattenSceneMobjects(evaluated).map((mobject) =>
+      cloneMobject(mobject, mobject.id)
+    ),
     progressById,
     replacements,
     completedReplacementSources,
@@ -2611,7 +2652,7 @@ function displayToken(token: string): string {
 
 export function Create(
   target: Mobject,
-  opts?: { runTime?: number }
+  opts?: AnimationOpts
 ):
   | PendingAnimation
   | PendingAnimation[] {
@@ -2620,6 +2661,7 @@ export function Create(
     return {
       kind: 'create',
       targetId: targets[0].id,
+      rateFunc: normalizeRateFunction(opts),
       runTime: opts?.runTime,
       _introducerRoot: target
     };
@@ -2627,6 +2669,7 @@ export function Create(
   return targets.map((item) => ({
     kind: 'create',
     targetId: item.id,
+    rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime,
     _introducerRoot: target
   }));
@@ -2636,6 +2679,8 @@ export function FadeIn(
   target: Mobject,
   opts?: {
     runTime?: number;
+    rateFunc?: string | RateFunction;
+    rate_func?: string | RateFunction;
     shift?: PointLike;
     targetPosition?: PointLike | Mobject;
     target_position?: PointLike | Mobject;
@@ -2670,6 +2715,7 @@ export function FadeIn(
     return {
       kind: 'fadeIn',
       targetId: item.id,
+      rateFunc: normalizeRateFunction(opts),
       runTime: opts?.runTime,
       meta: Object.keys(meta).length > 0 ? meta : undefined,
       _introducerRoot: target,
@@ -2684,7 +2730,7 @@ export function FadeIn(
 
 export function FadeOut(
   target: Mobject,
-  opts?: { runTime?: number }
+  opts?: AnimationOpts
 ):
   | PendingAnimation
   | PendingAnimation[] {
@@ -2693,12 +2739,14 @@ export function FadeOut(
     return {
       kind: 'fadeOut',
       targetId: targets[0].id,
+      rateFunc: normalizeRateFunction(opts),
       runTime: opts?.runTime,
     };
   }
   return targets.map((item) => ({
     kind: 'fadeOut',
     targetId: item.id,
+    rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime,
   }));
 }
@@ -2715,12 +2763,13 @@ export function Wait(
 export function ReplacementTransform(
   source: Mobject,
   target: Mobject,
-  opts?: { runTime?: number }
+  opts?: AnimationOpts
 ): Omit<Animation, 'runTime' | 'phase'> & { runTime?: number } {
   return {
     kind: 'replacementTransform',
     sourceId: source.id,
     targetId: target.id,
+    rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime
   };
 }
@@ -2780,12 +2829,13 @@ function toPendingAnimations(
 export function MoveAlongPath(
   target: Mobject,
   path: Mobject,
-  opts?: { runTime?: number }
+  opts?: AnimationOpts
 ): Omit<Animation, 'runTime' | 'phase'> & { runTime?: number } {
   return {
     kind: 'moveAlongPath',
     targetId: target.id,
     pathId: path.id,
+    rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime,
   };
 }
