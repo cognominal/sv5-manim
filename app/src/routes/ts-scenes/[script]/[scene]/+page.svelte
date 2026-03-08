@@ -40,6 +40,7 @@
       pySourceText: string;
       tsSourceText: string;
       tsSourceMtimeMs: number | null;
+      sourceEditingEnabled: boolean;
     };
   }>();
 
@@ -129,7 +130,8 @@
           progressById: new Map<string, number>(),
           replacements: [],
           completedReplacementSources: new Set<string>(),
-          completedReplacementTargets: new Set<string>()
+          completedReplacementTargets: new Set<string>(),
+          cameraOrientation: { phi: 0, theta: 0, gamma: 0, zoom: 1 }
         }
   );
 
@@ -352,8 +354,10 @@
   });
 
   const tsIsDirty = $derived(tsEditorText !== tsBaseText);
+  const tsEditorEditable = $derived(data.sourceEditingEnabled);
 
   async function saveTsSource(force = false): Promise<void> {
+    if (!data.sourceEditingEnabled) return;
     if (!tsIsDirty && !force) return;
     saveState = 'saving';
     saveMessage = '';
@@ -398,6 +402,7 @@
   }
 
   function onEditorKeydown(event: KeyboardEvent): void {
+    if (!data.sourceEditingEnabled) return;
     const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
     if (!isSave) return;
     event.preventDefault();
@@ -970,42 +975,44 @@
                     <p class="min-w-0 truncate text-xs text-slate-400">
                       {data.tsSourcePath}
                     </p>
-                    <span
-                      class="shrink-0 text-xs"
-                      class:text-emerald-300={saveState === 'saved'}
-                      class:text-amber-300={tsIsDirty || saveState === 'saving'}
-                      class:text-rose-300={saveState === 'error' || saveState === 'conflict'}
-                      class:text-slate-400={!tsIsDirty && saveState === 'idle'}
-                    >
-                      {saveState === 'idle' && tsIsDirty ? 'Dirty' :
-                        saveState === 'idle' ? '' :
-                        saveState === 'saving' ? 'Saving...' :
-                        saveState === 'saved' ? 'Saved' :
-                        saveState === 'conflict' ? 'Conflict' : 'Error'}
-                    </span>
-                    {#if saveMessage}
-                      <span class="shrink-0 text-xs text-slate-400">
-                        {saveMessage}
-                      </span>
-                    {/if}
-                    <button
-                      class="shrink-0 rounded border border-emerald-700 px-2 py-1
-                      text-xs text-emerald-300 disabled:opacity-50"
-                      onclick={() => void saveTsSource()}
-                      disabled={!tsIsDirty || saveState === 'saving'}
-                      title="Save (Ctrl/Cmd+S)"
-                    >
-                      Save
-                    </button>
-                    {#if saveState === 'conflict'}
-                      <button
-                        class="shrink-0 rounded border border-rose-700 px-2 py-1
-                        text-xs text-rose-300"
-                        onclick={() => void saveTsSource(true)}
-                        title="Force overwrite"
+                    {#if data.sourceEditingEnabled}
+                      <span
+                        class="shrink-0 text-xs"
+                        class:text-emerald-300={saveState === 'saved'}
+                        class:text-amber-300={tsIsDirty || saveState === 'saving'}
+                        class:text-rose-300={saveState === 'error' || saveState === 'conflict'}
+                        class:text-slate-400={!tsIsDirty && saveState === 'idle'}
                       >
-                        Force
+                        {saveState === 'idle' && tsIsDirty ? 'Dirty' :
+                          saveState === 'idle' ? '' :
+                          saveState === 'saving' ? 'Saving...' :
+                          saveState === 'saved' ? 'Saved' :
+                          saveState === 'conflict' ? 'Conflict' : 'Error'}
+                      </span>
+                      {#if saveMessage}
+                        <span class="shrink-0 text-xs text-slate-400">
+                          {saveMessage}
+                        </span>
+                      {/if}
+                      <button
+                        class="shrink-0 rounded border border-emerald-700 px-2 py-1
+                        text-xs text-emerald-300 disabled:opacity-50"
+                        onclick={() => void saveTsSource()}
+                        disabled={!tsIsDirty || saveState === 'saving'}
+                        title="Save (Ctrl/Cmd+S)"
+                      >
+                        Save
                       </button>
+                      {#if saveState === 'conflict'}
+                        <button
+                          class="shrink-0 rounded border border-rose-700 px-2 py-1
+                          text-xs text-rose-300"
+                          onclick={() => void saveTsSource(true)}
+                          title="Force overwrite"
+                        >
+                          Force
+                        </button>
+                      {/if}
                     {/if}
                     <button
                       class="shrink-0 rounded border border-slate-700 p-1 text-slate-300
@@ -1035,7 +1042,7 @@
                       value={tsBaseText}
                       language="typescript"
                       heightClass="h-full"
-                      editable={true}
+                      editable={tsEditorEditable}
                       initialViewState={tsEditorViewState}
                       onChange={onTsEditorChange}
                       onViewStateChange={onTsEditorViewStateChange}
@@ -1115,42 +1122,44 @@
                     <p class="min-w-0 truncate text-xs text-slate-400">
                       {data.tsSourcePath}
                     </p>
-                    <span
-                      class="shrink-0 text-xs"
-                      class:text-emerald-300={saveState === 'saved'}
-                      class:text-amber-300={tsIsDirty || saveState === 'saving'}
-                      class:text-rose-300={saveState === 'error' || saveState === 'conflict'}
-                      class:text-slate-400={!tsIsDirty && saveState === 'idle'}
-                    >
-                      {saveState === 'idle' && tsIsDirty ? 'Dirty' :
-                        saveState === 'idle' ? '' :
-                        saveState === 'saving' ? 'Saving...' :
-                        saveState === 'saved' ? 'Saved' :
-                        saveState === 'conflict' ? 'Conflict' : 'Error'}
-                    </span>
-                    {#if saveMessage}
-                      <span class="shrink-0 text-xs text-slate-400">
-                        {saveMessage}
-                      </span>
-                    {/if}
-                    <button
-                      class="shrink-0 rounded border border-emerald-700 px-2 py-1
-                      text-xs text-emerald-300 disabled:opacity-50"
-                      onclick={() => void saveTsSource()}
-                      disabled={!tsIsDirty || saveState === 'saving'}
-                      title="Save (Ctrl/Cmd+S)"
-                    >
-                      Save
-                    </button>
-                    {#if saveState === 'conflict'}
-                      <button
-                        class="shrink-0 rounded border border-rose-700 px-2 py-1
-                        text-xs text-rose-300"
-                        onclick={() => void saveTsSource(true)}
-                        title="Force overwrite"
+                    {#if data.sourceEditingEnabled}
+                      <span
+                        class="shrink-0 text-xs"
+                        class:text-emerald-300={saveState === 'saved'}
+                        class:text-amber-300={tsIsDirty || saveState === 'saving'}
+                        class:text-rose-300={saveState === 'error' || saveState === 'conflict'}
+                        class:text-slate-400={!tsIsDirty && saveState === 'idle'}
                       >
-                        Force
+                        {saveState === 'idle' && tsIsDirty ? 'Dirty' :
+                          saveState === 'idle' ? '' :
+                          saveState === 'saving' ? 'Saving...' :
+                          saveState === 'saved' ? 'Saved' :
+                          saveState === 'conflict' ? 'Conflict' : 'Error'}
+                      </span>
+                      {#if saveMessage}
+                        <span class="shrink-0 text-xs text-slate-400">
+                          {saveMessage}
+                        </span>
+                      {/if}
+                      <button
+                        class="shrink-0 rounded border border-emerald-700 px-2 py-1
+                        text-xs text-emerald-300 disabled:opacity-50"
+                        onclick={() => void saveTsSource()}
+                        disabled={!tsIsDirty || saveState === 'saving'}
+                        title="Save (Ctrl/Cmd+S)"
+                      >
+                        Save
                       </button>
+                      {#if saveState === 'conflict'}
+                        <button
+                          class="shrink-0 rounded border border-rose-700 px-2 py-1
+                          text-xs text-rose-300"
+                          onclick={() => void saveTsSource(true)}
+                          title="Force overwrite"
+                        >
+                          Force
+                        </button>
+                      {/if}
                     {/if}
                     <button
                       class="shrink-0 rounded border border-slate-700 p-1 text-slate-300
@@ -1180,7 +1189,7 @@
                       value={tsBaseText}
                       language="typescript"
                       heightClass="h-full"
-                      editable={true}
+                      editable={tsEditorEditable}
                       initialViewState={tsEditorViewState}
                       onChange={onTsEditorChange}
                       onViewStateChange={onTsEditorViewStateChange}
