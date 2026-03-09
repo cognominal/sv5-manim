@@ -55,6 +55,7 @@
   let mp4Status = $state<{
     exists: boolean;
     upToDate: boolean;
+    deploymentReadOnly?: boolean;
     playbackUrl: string;
     sourceMtimeMs: number | null;
     mp4MtimeMs: number | null;
@@ -443,6 +444,7 @@
       const next = await response.json() as {
         exists: boolean;
         upToDate: boolean;
+        deploymentReadOnly?: boolean;
         playbackUrl: string;
         sourceMtimeMs: number | null;
         mp4MtimeMs: number | null;
@@ -457,7 +459,7 @@
         mp4GenerationAbort?.abort();
       }
       lastSourceMtimeMs = next.sourceMtimeMs;
-      if (!next.upToDate && next.sourceMtimeMs) {
+      if (!next.deploymentReadOnly && !next.upToDate && next.sourceMtimeMs) {
         mp4ScheduledAt = next.sourceMtimeMs + 60_000;
       } else {
         mp4ScheduledAt = null;
@@ -758,39 +760,41 @@
                 >
                   Reset
                 </button>
-                <button
-                  class="rounded-md border border-emerald-700 bg-emerald-950/60
-                  px-3 py-1.5 text-sm disabled:opacity-60"
-                  onclick={() => {
-                    mp4Profile = 'lowres';
-                    void generateMp4('lowres');
-                  }}
-                  disabled={Boolean(exportingProfile)}
-                >
-                  {exportingProfile === 'lowres' ? 'lowres...' : 'lowres'}
-                </button>
-                <button
-                  class="rounded-md border border-emerald-700 bg-emerald-950/60
-                  px-3 py-1.5 text-sm disabled:opacity-60"
-                  onclick={() => {
-                    mp4Profile = 'medres';
-                    void generateMp4('medres');
-                  }}
-                  disabled={Boolean(exportingProfile)}
-                >
-                  {exportingProfile === 'medres' ? 'medres...' : 'medres'}
-                </button>
-                <button
-                  class="rounded-md border border-emerald-700 bg-emerald-950/60
-                  px-3 py-1.5 text-sm disabled:opacity-60"
-                  onclick={() => {
-                    mp4Profile = 'hires';
-                    void generateMp4('hires');
-                  }}
-                  disabled={Boolean(exportingProfile)}
-                >
-                  {exportingProfile === 'hires' ? 'hires...' : 'hires'}
-                </button>
+                {#if !mp4Status?.deploymentReadOnly}
+                  <button
+                    class="rounded-md border border-emerald-700 bg-emerald-950/60
+                    px-3 py-1.5 text-sm disabled:opacity-60"
+                    onclick={() => {
+                      mp4Profile = 'lowres';
+                      void generateMp4('lowres');
+                    }}
+                    disabled={Boolean(exportingProfile)}
+                  >
+                    {exportingProfile === 'lowres' ? 'lowres...' : 'lowres'}
+                  </button>
+                  <button
+                    class="rounded-md border border-emerald-700 bg-emerald-950/60
+                    px-3 py-1.5 text-sm disabled:opacity-60"
+                    onclick={() => {
+                      mp4Profile = 'medres';
+                      void generateMp4('medres');
+                    }}
+                    disabled={Boolean(exportingProfile)}
+                  >
+                    {exportingProfile === 'medres' ? 'medres...' : 'medres'}
+                  </button>
+                  <button
+                    class="rounded-md border border-emerald-700 bg-emerald-950/60
+                    px-3 py-1.5 text-sm disabled:opacity-60"
+                    onclick={() => {
+                      mp4Profile = 'hires';
+                      void generateMp4('hires');
+                    }}
+                    disabled={Boolean(exportingProfile)}
+                  >
+                    {exportingProfile === 'hires' ? 'hires...' : 'hires'}
+                  </button>
+                {/if}
                 <div class="ml-auto min-w-44 text-right text-sm text-slate-300">
                   progress: {(progress * 100).toFixed(1)}%
                 </div>
@@ -882,6 +886,10 @@
                   <p class="mt-1 text-xs text-slate-400">
                     Auto generation in {mp4CountdownSec}s after last source
                     change.
+                  </p>
+                {:else if mp4Status?.deploymentReadOnly && mp4Status?.exists}
+                  <p class="mt-1 text-xs text-slate-400">
+                    Deployed app is read-only; showing the committed MP4.
                   </p>
                 {/if}
               {/if}

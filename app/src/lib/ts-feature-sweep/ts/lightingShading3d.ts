@@ -1,13 +1,13 @@
-import { Circle, Create, Scene, Square, TitleText } from '$lib/manim';
+import { Sphere, ThreeDScene } from '$lib/manim';
 
-export function buildLightingShading3DScene(): Scene {
-  const scene = new Scene(0.9);
-  const title = TitleText('title', { x: 400, y: 72, value: 'Lighting and Shading 3D', fontSize: 34 });
-  const form = Square('square_light', { x: 248, y: 282, size: 150, stroke: '#2dd4bf' });
-  const key = Circle('circle_key', { x: 522, y: 246, radius: 78, stroke: '#f87171' });
-  const fill = Circle('circle_fill', { x: 636, y: 186, radius: 42, stroke: '#fb7185' });
-  scene.add(title, form, key, fill);
-  scene.play(Create(title));
-  scene.play(Create(form), Create(key), Create(fill));
+export function buildLightingShading3DScene(): ThreeDScene {
+  const scene = new ThreeDScene(0.9);
+  scene.set_camera_orientation({ phi: 75, theta: 30 });
+  const left = Sphere({ radius: 0.7, color: '#236b8e' }).shift!([-1.1, 0, 0]);
+  const right = Sphere({ radius: 0.7, color: '#cf5044' }).shift!([1.1, 0, 0]);
+  scene.add(left, right);
+  scene.begin_ambient_camera_rotation({ rate: 0.25 });
+  scene.wait(1.5);
+  scene.stop_ambient_camera_rotation();
   return scene;
 }

@@ -200,27 +200,29 @@ surface and the current Svelte preview renderer.
   success path by loading the real file-backed asset instead of adding a
   structural fallback placeholder.
 
-## Partial
-
-## Not In Parity
-
 ### 08 `camera_and_3d`
 
 - Python: [`py/08_camera_and_3d.py`](/Users/cog/mine/dlx_sv/py/08_camera_and_3d.py)
 - TS: [`cameraAnd3d.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/cameraAnd3d.ts)
-- Status: `Not in parity`
-- Missing:
-  `ThreeDScene`, `ThreeDAxes`, camera orientation, ambient camera
-  rotation, and any real 3D renderer integration.
+- Status: `Parity`
+- Notes:
+  The local adapter now exposes `ThreeDScene`,
+  `set_camera_orientation(...)`, ambient camera rotation timing, and a
+  projected `ThreeDAxes()` primitive. The SVG preview renderer evaluates
+  camera motion over time and projects 3D paths into the existing stage,
+  so the TS scene now follows the same structure as the Python source
+  instead of using placeholder 2D shapes.
 
 ### 09 `lighting_and_shading_3d`
 
 - Python: [`py/09_lighting_and_shading_3d.py`](/Users/cog/mine/dlx_sv/py/09_lighting_and_shading_3d.py)
 - TS: [`lightingShading3d.ts`](/Users/cog/mine/dlx_sv/app/src/lib/ts-feature-sweep/ts/lightingShading3d.ts)
-- Status: `Not in parity`
-- Missing:
-  `Sphere`, 3D material/shading support, camera orientation, and ambient
-  rotation.
+- Status: `Parity`
+- Notes:
+  The local adapter now includes a projected `Sphere(...)` primitive
+  with simple depth-aware shading/highlight treatment plus 3D camera
+  orientation and ambient rotation. The TS scene now uses the matching
+  `ThreeDScene` and paired spheres instead of placeholder 2D geometry.
 
 ## Adapter Surface Added In This Pass
 
@@ -253,10 +255,15 @@ in [`manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts):
 - SVG asset inputs:
   the repo now includes the real `assets/sample.svg` success-path input
   used by both the Python and TS scenes
+- 3D preview support:
+  the local adapter and SVG stage now support minimal 3D scene
+  evaluation for sweep parity via `ThreeDScene`, camera orientation,
+  ambient camera rotation, `ThreeDAxes`, projected 3D paths, and shaded
+  `Sphere(...)` rendering
 
 ## Remaining High-Value Gaps
 
 If the next goal is to move more of the partial/non-parity scenes into
 full parity, the highest-value missing pieces are:
 
-1. 3D scene, camera, and renderer integration.
+1. General 3D surface/mesh primitives beyond the current sweep needs.

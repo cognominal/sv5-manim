@@ -24,14 +24,6 @@ coverage/
 **/playwright-report/
 **/coverage/
 
-# Generated media exports
-media/
-**/media/
-media/ts-mp4/
-**/media/ts-mp4/
-media/py-mp4/
-**/media/py-mp4/
-
 # Python generated caches
 __pycache__/
 **/__pycache__/

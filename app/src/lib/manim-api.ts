@@ -1,8 +1,10 @@
 export type MobjectKind =
   'square' | 'circle' | 'text' | 'path' | 'dot' |
-  'mathtex' | 'kmathtex' | 'group' | 'svg';
+  'mathtex' | 'kmathtex' | 'group' | 'svg' |
+  'path3d' | 'sphere3d' | 'group3d';
 
 export type Point = { x: number; y: number };
+export type Point3D = { x: number; y: number; z: number };
 type Color = string;
 type PointLike = Point | [number, number, number?];
 type Updater = (mobject: Mobject) => Mobject | void;
@@ -48,9 +50,15 @@ export type Mobject = {
   textAlign?: 'left' | 'center' | 'right';
   bullet?: string;
   points?: Point[];
+  points3d?: Point3D[];
+  center3d?: Point3D;
   closed?: boolean;
   children?: Mobject[];
   token?: string;
+  is3d?: boolean;
+  shade3d?: boolean;
+  depthShade?: number;
+  fillOpacity?: number;
   updaters?: Updater[];
   alwaysRedrawFactory?: () => Mobject;
   savedState?: Partial<Mobject>;
@@ -120,6 +128,19 @@ export type Mobject = {
   ) => Mobject;
 };
 
+export type CameraOrientation = {
+  phi: number;
+  theta: number;
+  gamma: number;
+  zoom: number;
+};
+
+type AmbientCameraRotation = {
+  startPhase: number;
+  endPhase: number | null;
+  rate: number;
+};
+
 type AnimateBuilder = {
   become: (target: Mobject, opts?: AnimationOpts) => PendingAnimation;
   moveAlongPath: (path: Mobject, opts?: AnimationOpts) => PendingAnimation;
@@ -177,6 +198,13 @@ export class Scene {
   private baseMobjects = new Map<string, Mobject>();
   private baseSceneRoots: Mobject[] = [];
   private baseForegroundRoots: Mobject[] = [];
+  protected cameraOrientation: CameraOrientation = {
+    phi: 0,
+    theta: 0,
+    gamma: 0,
+    zoom: 1,
+  };
+  protected ambientCameraRotations: AmbientCameraRotation[] = [];
   mobjects: Mobject[] = [];
   foregroundMobjects: Mobject[] = [];
   sections: string[] = [];
@@ -277,7 +305,10 @@ export class Scene {
         !this.mobjects.some((mobject) => mobject.id === root.id) &&
         !flattenMobjects(this.mobjects).some((mobject) => mobject.id === root.id)
       ) {
-        this.appendMobjects('scene', [root], false);
+        // Introduced roots must be part of the base scene graph so
+        // frame evaluation can reset from a complete scene state and
+        // then apply intro progress back down to 0 when needed.
+        this.appendMobjects('scene', [root], true);
         introduced.add(root.id);
       }
       this.timeline.push({
@@ -345,6 +376,18 @@ export class Scene {
     );
   }
 
+  getBaseCameraOrientation(): CameraOrientation {
+    return { ...this.cameraOrientation };
+  }
+
+  getAmbientCameraRotations(): AmbientCameraRotation[] {
+    return this.ambientCameraRotations.map((rotation) => ({ ...rotation }));
+  }
+
+  protected currentPhase(): number {
+    return this.phase;
+  }
+
   private appendMobjects(
     layer: 'scene' | 'foreground',
     mobjects: Mobject[],
@@ -363,6 +406,58 @@ export class Scene {
       rootSnapshots.push(cloneMobject(mobject, mobject.id));
       knownIds.add(mobject.id);
     }
+  }
+}
+
+export class ThreeDScene extends Scene {
+  setCameraOrientation(opts: {
+    phi?: number;
+    theta?: number;
+    gamma?: number;
+    zoom?: number;
+  }): void {
+    this.cameraOrientation = {
+      phi: opts.phi ?? this.cameraOrientation.phi,
+      theta: opts.theta ?? this.cameraOrientation.theta,
+      gamma: opts.gamma ?? this.cameraOrientation.gamma,
+      zoom: opts.zoom ?? this.cameraOrientation.zoom,
+    };
+  }
+
+  set_camera_orientation(opts: {
+    phi?: number;
+    theta?: number;
+    gamma?: number;
+    zoom?: number;
+  }): void {
+    this.setCameraOrientation(opts);
+  }
+
+  beginAmbientCameraRotation(opts?: { rate?: number } | number): void {
+    const rate = typeof opts === 'number' ? opts : (opts?.rate ?? 0);
+    this.ambientCameraRotations.push({
+      startPhase: this.timeline.length > 0 ? this.timeline[this.timeline.length - 1]!.phase : 0,
+      endPhase: null,
+      rate,
+    });
+  }
+
+  begin_ambient_camera_rotation(opts?: { rate?: number } | number): void {
+    this.beginAmbientCameraRotation(opts);
+  }
+
+  stopAmbientCameraRotation(): void {
+    for (let i = this.ambientCameraRotations.length - 1; i >= 0; i -= 1) {
+      const rotation = this.ambientCameraRotations[i]!;
+      if (rotation.endPhase === null) {
+        rotation.endPhase = this.currentPhase();
+        return;
+      }
+    }
+  }
+
+  stop_ambient_camera_rotation(): void {
+    this.stopAmbientCameraRotation();
   }
 }
 
@@ -432,7 +527,7 @@ function autoId(prefix: string): string {
 function flattenMobjects(mobjects: Mobject[]): Mobject[] {
   const flat: Mobject[] = [];
   for (const mobject of mobjects) {
-    if (mobject.kind === 'group') {
+    if (mobject.kind === 'group' || mobject.kind === 'group3d') {
       flat.push(...flattenMobjects(mobject.children ?? []));
       continue;
     }
@@ -442,7 +537,7 @@ function flattenMobjects(mobjects: Mobject[]): Mobject[] {
 }
 
 function flattenRenderable(mobject: Mobject): Mobject[] {
-  if (mobject.kind === 'group') {
+  if (mobject.kind === 'group' || mobject.kind === 'group3d') {
     return flattenMobjects(mobject.children ?? []);
   }
   return [mobject];
@@ -461,7 +556,10 @@ const CENTER_X = STAGE_WIDTH / 2;
 const CENTER_Y = STAGE_HEIGHT / 2;
 
 function getMobjectX(mobject: Mobject): number {
-  if (mobject.kind === 'group' && (mobject.children?.length ?? 0) > 0) {
+  if (
+    (mobject.kind === 'group' || mobject.kind === 'group3d') &&
+    (mobject.children?.length ?? 0) > 0
+  ) {
     const bounds = mobjectBounds(mobject);
     return (bounds.left + bounds.right) / 2;
   }
@@ -474,7 +572,10 @@ function getMobjectX(mobject: Mobject): number {
 }
 
 function getMobjectY(mobject: Mobject): number {
-  if (mobject.kind === 'group' && (mobject.children?.length ?? 0) > 0) {
+  if (
+    (mobject.kind === 'group' || mobject.kind === 'group3d') &&
+    (mobject.children?.length ?? 0) > 0
+  ) {
     const bounds = mobjectBounds(mobject);
     return (bounds.top + bounds.bottom) / 2;
   }
@@ -489,12 +590,30 @@ function getMobjectY(mobject: Mobject): number {
 function estimateTextWidth(mobject: Mobject): number {
   const text = mobject.text ?? '';
   const fontSize = mobject.fontSize ?? 32;
-  return Math.max(fontSize * 0.7, text.length * fontSize * 0.62);
+  return Math.max(fontSize * 0.7, text.length * fontSize * 0.5);
 }
 
 function estimateTextHeight(mobject: Mobject): number {
   const fontSize = mobject.fontSize ?? 32;
   return fontSize * 1.2;
+}
+
+function transformedBounds(
+  bounds: { left: number; right: number; top: number; bottom: number },
+  mobject: Mobject
+): { left: number; right: number; top: number; bottom: number } {
+  const centerX = (bounds.left + bounds.right) / 2;
+  const centerY = (bounds.top + bounds.bottom) / 2;
+  const scaleX = (mobject.scaleFactor ?? 1) * (mobject.stretchX ?? 1);
+  const scaleY = (mobject.scaleFactor ?? 1) * (mobject.stretchY ?? 1);
+  const halfWidth = ((bounds.right - bounds.left) / 2) * Math.abs(scaleX);
+  const halfHeight = ((bounds.bottom - bounds.top) / 2) * Math.abs(scaleY);
+  return {
+    left: centerX - halfWidth,
+    right: centerX + halfWidth,
+    top: centerY - halfHeight,
+    bottom: centerY + halfHeight,
+  };
 }
 
 function mobjectBounds(mobject: Mobject): {
@@ -503,7 +622,7 @@ function mobjectBounds(mobject: Mobject): {
   top: number;
   bottom: number;
 } {
-  if (mobject.kind === 'group') {
+  if (mobject.kind === 'group' || mobject.kind === 'group3d') {
     const children = mobject.children ?? [];
     if (children.length === 0) {
       const x = getMobjectX(mobject);
@@ -524,58 +643,61 @@ function mobjectBounds(mobject: Mobject): {
   if (mobject.kind === 'square') {
     const halfW = (mobject.width ?? mobject.size ?? 0) / 2;
     const halfH = (mobject.height ?? mobject.size ?? 0) / 2;
-    return {
+    return transformedBounds({
       left: x - halfW,
       right: x + halfW,
       top: y - halfH,
       bottom: y + halfH
-    };
+    }, mobject);
   }
   if (mobject.kind === 'svg') {
     const halfW = (mobject.width ?? mobject.size ?? 0) / 2;
     const halfH = (mobject.height ?? mobject.radius ?? 0) / 2;
-    return {
+    return transformedBounds({
       left: x - halfW,
       right: x + halfW,
       top: y - halfH,
       bottom: y + halfH
-    };
+    }, mobject);
   }
   if (mobject.kind === 'circle' || mobject.kind === 'dot') {
     const halfW = (mobject.width ?? (mobject.radius ?? 0) * 2) / 2;
     const halfH = (mobject.height ?? (mobject.radius ?? 0) * 2) / 2;
-    return {
+    return transformedBounds({
       left: x - halfW,
       right: x + halfW,
       top: y - halfH,
       bottom: y + halfH
-    };
+    }, mobject);
   }
   if (mobject.kind === 'path') {
     const points = mobject.points ?? [];
     if (points.length === 0) return { left: x, right: x, top: y, bottom: y };
-    return {
+    return transformedBounds({
       left: Math.min(...points.map((p) => p.x)),
       right: Math.max(...points.map((p) => p.x)),
       top: Math.min(...points.map((p) => p.y)),
       bottom: Math.max(...points.map((p) => p.y)),
-    };
+    }, mobject);
   }
   if (mobject.kind === 'kmathtex' || mobject.kind === 'mathtex') {
     const fontSize = mobject.fontSize ?? 44;
     const texLen = (mobject.tex ?? mobject.text ?? '').length;
-    const halfW = Math.max(fontSize * 0.7, texLen * fontSize * 0.62) / 2;
+    const halfW = Math.max(fontSize * 0.7, texLen * fontSize * 0.5) / 2;
     const halfH = (fontSize * 1.9) / 2;
-    return {
+    return transformedBounds({
       left: x - halfW,
       right: x + halfW,
       top: y - halfH,
       bottom: y + halfH
-    };
+    }, mobject);
   }
   const halfW = estimateTextWidth(mobject) / 2;
   const halfH = estimateTextHeight(mobject) / 2;
-  return { left: x - halfW, right: x + halfW, top: y - halfH, bottom: y + halfH };
+  return transformedBounds(
+    { left: x - halfW, right: x + halfW, top: y - halfH, bottom: y + halfH },
+    mobject
+  );
 }
 
 function asVector(value: PointLike): [number, number, number] {
@@ -611,7 +733,7 @@ function normalizeSceneLength(value: number | undefined): number | undefined {
 }
 
 function translateMobject(mobject: Mobject, dxPx: number, dyPx: number): void {
-  if (mobject.kind === 'group') {
+  if (mobject.kind === 'group' || mobject.kind === 'group3d') {
     const children = mobject.children ?? [];
     for (const child of children) {
       translateMobject(child, dxPx, dyPx);
@@ -636,6 +758,8 @@ function cloneMobject(
     ...mobject,
     id: forcedId ?? (regenerateIds ? autoId(mobject.kind) : mobject.id),
     points: mobject.points?.map((point) => ({ ...point })),
+    points3d: mobject.points3d?.map((point) => ({ ...point })),
+    center3d: mobject.center3d ? { ...mobject.center3d } : undefined,
     children: mobject.children?.map((child) =>
       cloneMobject(child, undefined, regenerateIds)
     ),
@@ -648,7 +772,7 @@ function cloneMobject(
 }
 
 function syncGroupIndexProps(mobject: Mobject): void {
-  if (mobject.kind !== 'group') return;
+  if (mobject.kind !== 'group' && mobject.kind !== 'group3d') return;
   const children = mobject.children ?? [];
   let index = 0;
   while (index in mobject) {
@@ -676,7 +800,7 @@ function replaceChildById(
   sourceId: string,
   replacement: Mobject
 ): boolean {
-  if (mobject.kind !== 'group') return false;
+  if (mobject.kind !== 'group' && mobject.kind !== 'group3d') return false;
   const children = mobject.children ?? [];
   for (let i = 0; i < children.length; i += 1) {
     const child = children[i]!;
@@ -694,7 +818,7 @@ function replaceChildById(
 }
 
 function removeChildById(mobject: Mobject, sourceId: string): boolean {
-  if (mobject.kind !== 'group') return false;
+  if (mobject.kind !== 'group' && mobject.kind !== 'group3d') return false;
   const children = mobject.children ?? [];
   const index = children.findIndex((child) => child.id === sourceId);
   if (index >= 0) {
@@ -913,6 +1037,29 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     set_value: (_value: number, _opts?: AnimationOpts) => Wait(0),
   };
   mobject.moveTo = (target: PointLike | Mobject): Mobject => {
+    if (mobject.is3d) {
+      const next = 'id' in target
+        ? (target.center3d ?? fromPointLike3d([0, 0, 0]))
+        : fromPointLike3d(target);
+      const current = mobject.center3d ?? point3d(0, 0, 0);
+      const dx = next.x - current.x;
+      const dy = next.y - current.y;
+      const dz = next.z - current.z;
+      if (mobject.points3d) {
+        mobject.points3d = mobject.points3d.map((point) => ({
+          x: point.x + dx,
+          y: point.y + dy,
+          z: point.z + dz,
+        }));
+      }
+      if (mobject.kind === 'group3d') {
+        for (const child of mobject.children ?? []) {
+          child.shift?.([dx, dy, dz]);
+        }
+      }
+      mobject.center3d = next;
+      return mobject;
+    }
     const currentX = getMobjectX(mobject);
     const currentY = getMobjectY(mobject);
     let nextX = currentX;
@@ -927,7 +1074,7 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     }
     const dx = nextX - currentX;
     const dy = nextY - currentY;
-    if (mobject.kind === 'group') {
+    if (mobject.kind === 'group' || mobject.kind === 'group3d') {
       translateMobject(mobject, dx, dy);
       return mobject;
     }
@@ -943,10 +1090,28 @@ function attachMobjectApi(mobject: Mobject): Mobject {
   };
   mobject.move_to = mobject.moveTo;
   mobject.shift = (delta: PointLike): Mobject => {
+    if (mobject.is3d) {
+      const [dx, dy, dz] = asVector(delta);
+      if (mobject.points3d) {
+        mobject.points3d = mobject.points3d.map((point) => ({
+          x: point.x + dx,
+          y: point.y + dy,
+          z: point.z + dz,
+        }));
+      }
+      if (mobject.kind === 'group3d') {
+        for (const child of mobject.children ?? []) {
+          child.shift?.([dx, dy, dz]);
+        }
+      }
+      const center = mobject.center3d ?? point3d(0, 0, 0);
+      mobject.center3d = point3d(center.x + dx, center.y + dy, center.z + dz);
+      return mobject;
+    }
     const [dx, dy] = asVector(delta);
     const dxPx = dx * UNIT_PX;
     const dyPx = -dy * UNIT_PX;
-    if (mobject.kind === 'group') {
+    if (mobject.kind === 'group' || mobject.kind === 'group3d') {
       translateMobject(mobject, dxPx, dyPx);
       return mobject;
     }
@@ -956,7 +1121,24 @@ function attachMobjectApi(mobject: Mobject): Mobject {
   };
   mobject.scale = (factor: number): Mobject => {
     mobject.scaleFactor = (mobject.scaleFactor ?? 1) * factor;
-    if (mobject.kind === 'group') {
+    if (mobject.is3d) {
+      if (typeof mobject.radius === 'number') mobject.radius *= factor;
+      if (mobject.points3d) {
+        const center = mobject.center3d ?? point3d(0, 0, 0);
+        mobject.points3d = mobject.points3d.map((point) => ({
+          x: center.x + (point.x - center.x) * factor,
+          y: center.y + (point.y - center.y) * factor,
+          z: center.z + (point.z - center.z) * factor,
+        }));
+      }
+      if (mobject.kind === 'group3d') {
+        for (const child of mobject.children ?? []) {
+          child.scale?.(factor);
+        }
+      }
+      return mobject;
+    }
+    if (mobject.kind === 'group' || mobject.kind === 'group3d') {
       const groupCenter = mobject.getCenter?.() ?? {
         x: getMobjectX(mobject),
         y: getMobjectY(mobject)
@@ -1159,7 +1341,7 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     direction: PointLike = RIGHT,
     buff = 0.25
   ): Mobject => {
-    if (mobject.kind !== 'group') return mobject;
+    if (mobject.kind !== 'group' && mobject.kind !== 'group3d') return mobject;
     const children = mobject.children ?? [];
     if (children.length <= 1) return mobject;
 
@@ -1234,6 +1416,7 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     mobject.savedState = {
       x: mobject.x,
       y: mobject.y,
+      center3d: mobject.center3d ? { ...mobject.center3d } : undefined,
       size: mobject.size,
       radius: mobject.radius,
       stroke: mobject.stroke,
@@ -1244,6 +1427,7 @@ function attachMobjectApi(mobject: Mobject): Mobject {
       rotation: mobject.rotation,
       scaleFactor: mobject.scaleFactor,
       points: mobject.points?.map((point) => ({ ...point })),
+      points3d: mobject.points3d?.map((point) => ({ ...point })),
     };
     return mobject;
   };
@@ -1318,6 +1502,17 @@ function fromPointLike(value: PointLike): Point {
   };
 }
 
+function fromPointLike3d(value: PointLike): Point3D {
+  if (isPoint(value)) {
+    return { x: (value.x - CENTER_X) / UNIT_PX, y: (CENTER_Y - value.y) / UNIT_PX, z: 0 };
+  }
+  return {
+    x: value[0],
+    y: value[1],
+    z: value[2] ?? 0,
+  };
+}
+
 export function scenePhases(scene: Scene): ScenePhase[] {
   const phaseMap = new Map<number, Animation[]>();
   for (const step of scene.timeline) {
@@ -1353,7 +1548,244 @@ export type EvaluatedSceneState = {
   }>;
   completedReplacementSources: Set<string>;
   completedReplacementTargets: Set<string>;
+  cameraOrientation: CameraOrientation;
 };
+
+function deg(value: number): number {
+  return (value * Math.PI) / 180;
+}
+
+function point3d(x: number, y: number, z: number): Point3D {
+  return { x, y, z };
+}
+
+function add3d(a: Point3D, b: Point3D): Point3D {
+  return point3d(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
+function sub3d(a: Point3D, b: Point3D): Point3D {
+  return point3d(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+function dot3d(a: Point3D, b: Point3D): number {
+  return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+}
+
+function cross3d(a: Point3D, b: Point3D): Point3D {
+  return point3d(
+    (a.y * b.z) - (a.z * b.y),
+    (a.z * b.x) - (a.x * b.z),
+    (a.x * b.y) - (a.y * b.x)
+  );
+}
+
+function scale3d(value: Point3D, factor: number): Point3D {
+  return point3d(value.x * factor, value.y * factor, value.z * factor);
+}
+
+function normalize3d(value: Point3D): Point3D {
+  const length = Math.hypot(value.x, value.y, value.z);
+  if (length <= 1e-9) return point3d(0, 0, 0);
+  return scale3d(value, 1 / length);
+}
+
+function rotateAroundAxis(
+  value: Point3D,
+  axis: Point3D,
+  angleRad: number
+): Point3D {
+  const unitAxis = normalize3d(axis);
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
+  const parallel = scale3d(unitAxis, dot3d(value, unitAxis));
+  const perpendicular = sub3d(value, parallel);
+  const rotatedPerpendicular = add3d(
+    scale3d(perpendicular, cosA),
+    scale3d(cross3d(unitAxis, perpendicular), sinA)
+  );
+  return add3d(rotatedPerpendicular, parallel);
+}
+
+function cameraBasis(camera: CameraOrientation): {
+  right: Point3D;
+  up: Point3D;
+  forward: Point3D;
+  position: Point3D;
+} {
+  const phi = deg(camera.phi);
+  const theta = deg(camera.theta);
+  const gamma = deg(camera.gamma);
+  const radius = 8 / Math.max(0.2, camera.zoom);
+  const position = point3d(
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.cos(phi)
+  );
+
+  const forward = normalize3d(scale3d(position, -1));
+  const worldUp = point3d(0, 0, 1);
+  let right = normalize3d(cross3d(forward, worldUp));
+  if (Math.hypot(right.x, right.y, right.z) <= 1e-9) {
+    right = point3d(1, 0, 0);
+  }
+  let up = normalize3d(cross3d(right, forward));
+  if (Math.abs(gamma) > 1e-9) {
+    right = rotateAroundAxis(right, forward, gamma);
+    up = rotateAroundAxis(up, forward, gamma);
+  }
+
+  return { right, up, forward, position };
+}
+
+function projectPoint3d(point: Point3D, camera: CameraOrientation): Point {
+  const basis = cameraBasis(camera);
+  const relative = sub3d(point, basis.position);
+  const cameraX = dot3d(relative, basis.right);
+  const cameraY = dot3d(relative, basis.up);
+  const cameraZ = dot3d(relative, basis.forward);
+  const focalLength = 6.5;
+  const near = 0.2;
+  const clampedZ = Math.max(near, cameraZ);
+  const perspective = (focalLength / clampedZ) * camera.zoom;
+  return {
+    x: CENTER_X + cameraX * UNIT_PX * perspective,
+    y: CENTER_Y - cameraY * UNIT_PX * perspective,
+  };
+}
+
+function depthForPoint(point: Point3D, camera: CameraOrientation): number {
+  const basis = cameraBasis(camera);
+  return dot3d(sub3d(point, basis.position), basis.forward);
+}
+
+function shadeColor(hex: string, factor: number): string {
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (![3, 6].includes(normalized.length)) return hex;
+  const full = normalized.length === 3
+    ? normalized.split('').map((part) => part + part).join('')
+    : normalized;
+  const channels = [0, 2, 4].map((offset) =>
+    Math.max(
+      0,
+      Math.min(
+        255,
+        Math.round(parseInt(full.slice(offset, offset + 2), 16) * factor)
+      )
+    )
+  );
+  return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function convert3dMobjectTo2d(
+  mobject: Mobject,
+  camera: CameraOrientation
+): Mobject[] {
+  if (mobject.kind === 'group3d') {
+    return (mobject.children ?? []).flatMap((child) =>
+      convert3dMobjectTo2d(child, camera)
+    );
+  }
+
+  if (mobject.kind === 'path3d') {
+    const points3d = mobject.points3d ?? [];
+    const points = points3d.map((point) => projectPoint3d(point, camera));
+    const center = mobject.center3d ??
+      point3d(
+        points3d.reduce((sum, point) => sum + point.x, 0) / Math.max(1, points3d.length),
+        points3d.reduce((sum, point) => sum + point.y, 0) / Math.max(1, points3d.length),
+        points3d.reduce((sum, point) => sum + point.z, 0) / Math.max(1, points3d.length)
+      );
+    const depth = depthForPoint(center, camera);
+    return [attachMobjectApi({
+      ...mobject,
+      kind: 'path',
+      points,
+      points3d: undefined,
+      center3d: undefined,
+      x: undefined,
+      y: undefined,
+      zIndex: (mobject.zIndex ?? 0) + depth * 10,
+    })];
+  }
+
+  if (mobject.kind === 'sphere3d') {
+    const center = mobject.center3d ?? point3d(0, 0, 0);
+    const projectedCenter = projectPoint3d(center, camera);
+    const edge = projectPoint3d(point3d(center.x + (mobject.radius ?? 1), center.y, center.z), camera);
+    const depth = depthForPoint(center, camera);
+    const radius = Math.max(2, Math.hypot(edge.x - projectedCenter.x, edge.y - projectedCenter.y));
+    const light = Math.max(0.55, 1.1 - Math.max(-1.5, depth) * 0.18);
+    const fill = shadeColor(mobject.fill ?? mobject.stroke, light);
+    const rim = shadeColor(mobject.stroke, light * 0.85);
+    const highlight = attachMobjectApi({
+      id: `${mobject.id}_highlight`,
+      kind: 'circle',
+      x: projectedCenter.x - radius * 0.26,
+      y: projectedCenter.y - radius * 0.22,
+      width: radius * 0.72,
+      height: radius * 0.52,
+      stroke: shadeColor('#ffffff', 0.95),
+      strokeWidth: Math.max(1.5, (mobject.strokeWidth ?? 2) * 0.6),
+      opacity: 0.45,
+      zIndex: (mobject.zIndex ?? 0) + depth * 10 + 0.2,
+    });
+    const body = attachMobjectApi({
+      id: mobject.id,
+      kind: 'path',
+      points: circlePointSamples(projectedCenter, radius, radius, 48),
+      closed: true,
+      fill,
+      fillOpacity: mobject.fillOpacity ?? 0.92,
+      opacity: mobject.opacity ?? 1,
+      stroke: rim,
+      strokeWidth: mobject.strokeWidth,
+      zIndex: (mobject.zIndex ?? 0) + depth * 10,
+    });
+    return [body, highlight];
+  }
+
+  return [cloneMobject(mobject, mobject.id)];
+}
+
+function circlePointSamples(
+  center: Point,
+  rx: number,
+  ry: number,
+  count: number
+): Point[] {
+  const points: Point[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const theta = (-Math.PI / 2) + (i / count) * Math.PI * 2;
+    points.push({
+      x: center.x + rx * Math.cos(theta),
+      y: center.y + ry * Math.sin(theta),
+    });
+  }
+  return points;
+}
+
+function cameraOrientationAtTime(scene: Scene, timeSec: number): CameraOrientation {
+  const camera = scene.getBaseCameraOrientation();
+  if (!(scene instanceof ThreeDScene)) return camera;
+  const phases = scenePhases(scene);
+  const phaseStarts: number[] = [];
+  let elapsed = 0;
+  for (const phase of phases) {
+    phaseStarts.push(elapsed);
+    elapsed += phase.durationSec;
+  }
+
+  for (const rotation of scene.getAmbientCameraRotations()) {
+    const startTime = phaseStarts[rotation.startPhase] ?? 0;
+    const endTime = rotation.endPhase === null
+      ? timeSec
+      : (phaseStarts[rotation.endPhase] ?? elapsed);
+    const activeUntil = Math.min(timeSec, endTime);
+    if (activeUntil <= startTime) continue;
+    camera.theta += rotation.rate * 180 * (activeUntil - startTime);
+  }
+  return camera;
+}
 
 function applyAnimationToMobject(
   step: Animation,
@@ -1664,14 +2096,19 @@ export function evaluateSceneAtTime(
     ...scene.mobjects,
     ...scene.foregroundMobjects.filter((mobject) => !topLevelIds.has(mobject.id))
   ];
+  const cameraOrientation = cameraOrientationAtTime(scene, timeSec);
   return {
-    mobjects: flattenSceneMobjects(evaluated).map((mobject) =>
-      cloneMobject(mobject, mobject.id)
+    mobjects: flattenSceneMobjects(evaluated).flatMap((mobject) =>
+      mobject.is3d || mobject.kind === 'path3d' ||
+        mobject.kind === 'sphere3d' || mobject.kind === 'group3d'
+        ? convert3dMobjectTo2d(mobject, cameraOrientation)
+        : [cloneMobject(mobject, mobject.id)]
     ),
     progressById,
     replacements,
     completedReplacementSources,
     completedReplacementTargets,
+    cameraOrientation,
   };
 }
 
@@ -2646,6 +3083,204 @@ export function VGroup(
   });
 }
 
+export function ThreeDAxes(opts?: {
+  id?: string;
+  color?: Color;
+  strokeWidth?: number;
+  length?: number;
+  tickStep?: number;
+}): Mobject {
+  const id = opts?.id ?? autoId('three_d_axes');
+  const color = opts?.color ?? '#e2e8f0';
+  const strokeWidth = opts?.strokeWidth ?? 4;
+  const length = opts?.length ?? 2.8;
+  const tickStep = opts?.tickStep ?? 0.5;
+  const axisLine = (
+    axisId: string,
+    start: Point3D,
+    end: Point3D,
+    stroke: string,
+    zIndex: number
+  ): Mobject => attachMobjectApi({
+    id: axisId,
+    kind: 'path3d',
+    points3d: [start, end],
+    center3d: point3d(
+      (start.x + end.x) / 2,
+      (start.y + end.y) / 2,
+      (start.z + end.z) / 2
+    ),
+    closed: false,
+    stroke,
+    strokeWidth,
+    is3d: true,
+    zIndex,
+  });
+
+  const tickLine = (
+    axisId: string,
+    index: number,
+    center: Point3D,
+    offsetA: Point3D,
+    offsetB: Point3D,
+    stroke: string,
+    zIndex: number
+  ): Mobject => attachMobjectApi({
+    id: `${axisId}_tick_${index}`,
+    kind: 'path3d',
+    points3d: [
+      point3d(
+        center.x + offsetA.x,
+        center.y + offsetA.y,
+        center.z + offsetA.z
+      ),
+      point3d(
+        center.x + offsetB.x,
+        center.y + offsetB.y,
+        center.z + offsetB.z
+      )
+    ],
+    center3d: center,
+    closed: false,
+    stroke,
+    strokeWidth: Math.max(1.5, strokeWidth * 0.55),
+    is3d: true,
+    zIndex,
+  });
+
+  const arrowTip = (
+    axisId: string,
+    end: Point3D,
+    left: Point3D,
+    right: Point3D,
+    stroke: string,
+    zIndex: number
+  ): Mobject => attachMobjectApi({
+    id: `${axisId}_tip`,
+    kind: 'path3d',
+    points3d: [left, end, right],
+    center3d: end,
+    closed: false,
+    stroke,
+    strokeWidth,
+    is3d: true,
+    zIndex,
+  });
+
+  function buildAxis(
+    axisId: string,
+    start: Point3D,
+    end: Point3D,
+    stroke: string,
+    zIndex: number,
+    tickOffsets: [Point3D, Point3D],
+    tipOffsets: [Point3D, Point3D]
+  ): Mobject[] {
+    const children: Mobject[] = [axisLine(axisId, start, end, stroke, zIndex)];
+    for (
+      let value = -length + tickStep;
+      value < length - (tickStep * 0.5);
+      value += tickStep
+    ) {
+      const center = axisId.endsWith('_x')
+        ? point3d(value, 0, 0)
+        : axisId.endsWith('_y')
+          ? point3d(0, value, 0)
+          : point3d(0, 0, value);
+      children.push(
+        tickLine(
+          axisId,
+          Math.round(value * 100),
+          center,
+          tickOffsets[0],
+          tickOffsets[1],
+          stroke,
+          zIndex
+        )
+      );
+    }
+    children.push(
+      arrowTip(
+        axisId,
+        end,
+        point3d(
+          end.x + tipOffsets[0].x,
+          end.y + tipOffsets[0].y,
+          end.z + tipOffsets[0].z
+        ),
+        point3d(
+          end.x + tipOffsets[1].x,
+          end.y + tipOffsets[1].y,
+          end.z + tipOffsets[1].z
+        ),
+        stroke,
+        zIndex
+      )
+    );
+    return children;
+  }
+
+  return attachMobjectApi({
+    id,
+    kind: 'group3d',
+    children: [
+      ...buildAxis(
+        `${id}_x`,
+        point3d(-length, 0, 0),
+        point3d(length, 0, 0),
+        color,
+        2,
+        [point3d(0, -0.06, 0), point3d(0, 0.06, 0)],
+        [point3d(-0.18, 0.09, 0), point3d(-0.18, -0.09, 0)]
+      ),
+      ...buildAxis(
+        `${id}_y`,
+        point3d(0, -length, 0),
+        point3d(0, length, 0),
+        color,
+        1,
+        [point3d(-0.06, 0, 0), point3d(0.06, 0, 0)],
+        [point3d(-0.09, -0.18, 0), point3d(0.09, -0.18, 0)]
+      ),
+      ...buildAxis(
+        `${id}_z`,
+        point3d(0, 0, -length),
+        point3d(0, 0, length),
+        color,
+        0,
+        [point3d(-0.05, 0, 0), point3d(0.05, 0, 0)],
+        [point3d(-0.08, 0, -0.18), point3d(0.08, 0, -0.18)]
+      ),
+    ],
+    stroke: color,
+    strokeWidth,
+    is3d: true,
+  });
+}
+
+export function Sphere(opts?: {
+  id?: string;
+  radius?: number;
+  color?: Color;
+  stroke?: Color;
+  strokeWidth?: number;
+  fillOpacity?: number;
+}): Mobject {
+  const color = opts?.color ?? opts?.stroke ?? '#60a5fa';
+  return attachMobjectApi({
+    id: opts?.id ?? autoId('sphere'),
+    kind: 'sphere3d',
+    center3d: point3d(0, 0, 0),
+    radius: opts?.radius ?? 1,
+    stroke: shadeColor(color, 0.82),
+    fill: color,
+    strokeWidth: opts?.strokeWidth ?? 2,
+    fillOpacity: opts?.fillOpacity ?? 0.94,
+    is3d: true,
+    shade3d: true,
+  });
+}
+
 export function Axes(opts?: {
   id?: string;
   xRange?: [number, number, number?];
@@ -2939,7 +3574,9 @@ export function Brace(
   const bounds = mobjectBounds(target);
   const direction = opts?.direction ?? DOWN;
   const axis = directionAxis(direction);
-  const buff = opts?.buff ?? 8;
+  const buff = opts?.buff === undefined
+    ? 8
+    : (Math.abs(opts.buff) <= 3 ? opts.buff * UNIT_PX : opts.buff);
   if (axis === 'x') {
     const x = Math.sign(asVector(direction)[0]) >= 0 ? bounds.right + buff : bounds.left - buff;
     return Path(opts?.id ?? autoId('brace'), {
@@ -2953,16 +3590,46 @@ export function Brace(
       strokeWidth: opts?.strokeWidth ?? 5,
     });
   }
-  const y = Math.sign(asVector(direction)[1]) >= 0 ? bounds.top - buff : bounds.bottom + buff;
+  const signY = Math.sign(asVector(direction)[1]) || -1;
+  const y = signY >= 0 ? bounds.top - buff : bounds.bottom + buff + 6;
+  const centerX = (bounds.left + bounds.right) / 2;
+  const width = bounds.right - bounds.left;
+  const hookDepth = 8;
+  const innerDepth = 5;
+  const cuspDepth = 18;
   return Path(opts?.id ?? autoId('brace'), {
     points: [
       { x: bounds.left, y },
-      { x: bounds.left + 14, y },
+      { x: bounds.left + 8, y },
       {
-        x: (bounds.left + bounds.right) / 2,
-        y: y - Math.sign(asVector(direction)[1]) * 10
+        x: bounds.left + 14,
+        y: y - signY * hookDepth
       },
-      { x: bounds.right - 14, y },
+      {
+        x: bounds.left + (width * 0.28),
+        y: y - signY * innerDepth
+      },
+      {
+        x: centerX - 12,
+        y: y - signY * innerDepth
+      },
+      {
+        x: centerX,
+        y: y - signY * cuspDepth
+      },
+      {
+        x: centerX + 12,
+        y: y - signY * innerDepth
+      },
+      {
+        x: bounds.right - (width * 0.28),
+        y: y - signY * innerDepth
+      },
+      {
+        x: bounds.right - 14,
+        y: y - signY * hookDepth
+      },
+      { x: bounds.right - 8, y },
       { x: bounds.right, y },
     ],
     closed: false,
@@ -3167,7 +3834,10 @@ export function ReplacementTransform(
 ):
   | PendingAnimation
   | PendingAnimation[] {
-  if (source.kind === 'group' && target.kind === 'group') {
+  if (
+    (source.kind === 'group' || source.kind === 'group3d') &&
+    (target.kind === 'group' || target.kind === 'group3d')
+  ) {
     const sourceChildren = source.children ?? [];
     const targetChildren = target.children ?? [];
     const targetById = new Map(targetChildren.map((child) => [child.id, child]));

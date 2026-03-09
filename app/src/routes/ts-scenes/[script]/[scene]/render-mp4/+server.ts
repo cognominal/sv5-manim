@@ -216,6 +216,10 @@ async function renderTsMp4(
 }
 
 export async function POST({ params, request }) {
+  if (process.env.VERCEL === '1') {
+    throw error(403, 'MP4 generation is disabled on read-only deployments.');
+  }
+
   const script = findTsScript(params.script);
   const scene = findTsScene(params.script, params.scene);
   if (!script || !scene) {

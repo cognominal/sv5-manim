@@ -33,6 +33,7 @@
   let mp4Status = $state<{
     exists: boolean;
     upToDate: boolean;
+    deploymentReadOnly?: boolean;
     playbackUrl: string;
     sourceMtimeMs: number | null;
     mp4MtimeMs: number | null;
@@ -321,14 +322,16 @@
             <option value="medres">medres</option>
             <option value="hires">hires</option>
           </select>
-          <button
-            type="button"
-            class="dlx-button"
-            disabled={mp4Busy}
-            onclick={() => renderPyMp4(mp4Profile)}
-          >
-            {mp4Busy ? 'Rendering...' : 'Render Python MP4'}
-          </button>
+          {#if !mp4Status?.deploymentReadOnly}
+            <button
+              type="button"
+              class="dlx-button"
+              disabled={mp4Busy}
+              onclick={() => renderPyMp4(mp4Profile)}
+            >
+              {mp4Busy ? 'Rendering...' : 'Render Python MP4'}
+            </button>
+          {/if}
         </div>
         <p class="text-xs text-slate-400">
           Script: `{preview.parity.pyScriptPath}` class
@@ -339,6 +342,11 @@
         {/if}
         {#if mp4Message}
           <p class="mt-1 text-sm text-emerald-400">{mp4Message}</p>
+        {/if}
+        {#if mp4Status?.deploymentReadOnly && mp4Status?.exists}
+          <p class="mt-1 text-sm text-slate-400">
+            Deployed app is read-only; showing the committed MP4.
+          </p>
         {/if}
         <ul class="mt-2 text-sm text-slate-300">
           <li>TS duration: {durationSec.toFixed(2)} sec</li>

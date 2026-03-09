@@ -1,4 +1,31 @@
-# imanin
+# imanim
+
+
+iManim intends to be a sveltekit app for
+interactive programmatic animations
+of programs. Compare with the definition of manim :
+Manim is a Python library for creating precise, programmatic animations
+of mathematical concepts.
+
+Think of imanim as a program interactive literate notebooks.
+To bootstrap it the focus has been on the [ts feature sweep]
+(<https://sv5-manim.vercel.app/ts-sweep>)
+
+Definition of its [purpose](#ts-sweep).
+
+iManim is currently available in a read only form at
+<https://sv5-manim.vercel.app/>
+
+## Manim
+
+We currently define iManim by difference with Manim. So let us state what is
+manim.
+
+Manim is a Python library for creating precise, programmatic animations
+of mathematical concepts.
+These animation are visible on the
+[3Blue1Brown](https://www.youtube.com/@3blue1brown) youtube channnel.
+The site for the community edition is [manim.community](https://www.manim).community/
 
 We want to get to an interactive manim in svelte so that means using ts instead
 of Python.

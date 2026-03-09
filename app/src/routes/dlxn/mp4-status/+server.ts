@@ -41,16 +41,20 @@ export async function GET({ url }) {
   const pySrcMtimeMs = await safeMtimeMs(pySourcePath(repoRoot));
   const tsSrcMtimeMs = await safeMtimeMs(tsSourcePath(repoRoot));
   const sourceMtimeMs = Math.max(pySrcMtimeMs ?? 0, tsSrcMtimeMs ?? 0) || null;
+  const deploymentReadOnly = process.env.VERCEL === '1';
 
   const exists = Boolean(mp4MtimeMs);
-  const upToDate = Boolean(
-    exists && sourceMtimeMs && mp4MtimeMs && mp4MtimeMs >= sourceMtimeMs
-  );
+  const upToDate = deploymentReadOnly
+    ? exists
+    : Boolean(
+        exists && sourceMtimeMs && mp4MtimeMs && mp4MtimeMs >= sourceMtimeMs
+      );
 
   return json({
     profile,
     exists,
     upToDate,
+    deploymentReadOnly,
     sourceMtimeMs,
     mp4MtimeMs,
     playbackUrl: `/py-mp4/dlxn/dlx_3x2_three_tiles?profile=${profile}`,

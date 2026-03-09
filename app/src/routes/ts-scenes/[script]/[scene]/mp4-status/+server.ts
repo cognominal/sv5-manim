@@ -88,14 +88,17 @@ export async function GET({ params, url }) {
       ? tsMp4Path(repoRoot, params.script, params.scene, profile)
       : await pyMp4Path(repoRoot, params.script, params.scene, profile);
   const mp4MtimeMs = mp4Path ? await safeMtimeMs(mp4Path) : null;
+  const deploymentReadOnly = process.env.VERCEL === '1';
 
   const exists = Boolean(mp4Path && mp4MtimeMs);
-  const upToDate = Boolean(
-    exists &&
-      sourceMtimeMs &&
-      mp4MtimeMs &&
-      mp4MtimeMs >= sourceMtimeMs
-  );
+  const upToDate = deploymentReadOnly
+    ? exists
+    : Boolean(
+        exists &&
+          sourceMtimeMs &&
+          mp4MtimeMs &&
+          mp4MtimeMs >= sourceMtimeMs
+      );
 
   const playbackUrl =
     lang === 'ts'
@@ -114,6 +117,7 @@ export async function GET({ params, url }) {
     mp4MtimeMs,
     exists,
     upToDate,
+    deploymentReadOnly,
     playbackUrl,
     inProgress: Boolean(renderJob?.inProgress),
     renderError: renderJob?.lastError ?? null,

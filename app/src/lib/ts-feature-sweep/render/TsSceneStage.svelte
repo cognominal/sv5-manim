@@ -455,7 +455,14 @@
         id={mobject.id}
         d={d}
         fill={closed ? (mobject.fill ?? 'none') : 'none'}
-        fill-opacity={closed ? alphaOf(mobject, drawProgress) : undefined}
+        fill-opacity={
+          closed
+            ? alphaOf(
+              mobject,
+              drawProgress * (mobject.fillOpacity ?? 1)
+            )
+            : undefined
+        }
         stroke={mobject.stroke}
         stroke-opacity={alphaOf(mobject, drawProgress)}
         stroke-width={mobject.strokeWidth}

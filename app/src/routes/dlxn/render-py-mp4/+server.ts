@@ -66,6 +66,10 @@ async function findRenderedMp4(tempMediaDir: string): Promise<string> {
 }
 
 export async function POST({ request }) {
+  if (process.env.VERCEL === '1') {
+    throw error(403, 'MP4 generation is disabled on read-only deployments.');
+  }
+
   const body = await request.json().catch(() => ({}));
   const profile = body.profile as Profile;
   if (!profile || !['lowres', 'medres', 'hires'].includes(profile)) {
