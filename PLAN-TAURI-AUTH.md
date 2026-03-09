@@ -85,6 +85,78 @@ That same shape fits `dlx_sv` because it preserves both:
 - no native menu integration
 - no desktop packaging story
 
+## Phase 0 Status
+
+Phase 0 has been executed for this plan.
+
+### Baseline Validation
+
+- `bun run check`: passes
+- `bun run build`: passes
+
+### Branch
+
+- working branch: `codex/tauri-auth`
+
+### Existing Unrelated Worktree Change
+
+- `media/py-mp4/mobjects_basics/basics_layout/medres.mp4` is already
+  modified and should be treated as unrelated to this plan
+
+### Portability Requirement
+
+The target must be portable. The expected test environment is Linux
+Docker running on macOS. That changes the priority of several issues:
+
+- macOS-only shell commands are blockers, not cleanup
+- packaged-app assumptions must avoid relying on Finder or other macOS
+  desktop behavior
+- repo-path assumptions must work when the app runs in a container or a
+  non-repo current working directory
+
+### Phase 0 Findings
+
+#### Working Today
+
+- the current web app builds cleanly
+- server endpoints are present in the production build output
+- current route logic is already server-oriented, which aligns with the
+  embedded-app-server Tauri model
+
+#### Portability Blockers
+
+1. `app/src/routes/ts-scenes/[script]/[scene]/open-folder/+server.ts`
+   uses `open`, which is macOS-specific.
+2. `app/src/routes/dlxn/render-py-mp4/+server.ts` uses external `find`
+   to locate rendered files. That is Unix-oriented and unnecessary when
+   a Node-side directory walk would be portable.
+3. Multiple routes derive the repo root from `process.cwd()`:
+   - `app/src/routes/ts-scenes/[script]/[scene]/save-ts/+server.ts`
+   - `app/src/routes/ts-scenes/[script]/[scene]/render-mp4/+server.ts`
+   - `app/src/routes/dlxn/render-py-mp4/+server.ts`
+   - `app/src/routes/py-mp4/[script]/[scene]/+server.ts`
+   - `app/src/routes/ts-mp4/[script]/[scene]/+server.ts`
+   - `app/src/routes/ts-scenes/[script]/[scene]/+page.server.ts`
+   and others
+4. Render/export routes require external tools that may not exist in the
+   Linux Docker test environment:
+   - `node`
+   - `ffmpeg`
+   - `ffprobe`
+   - `manim`
+   - Playwright browser runtime
+
+#### Design Consequences
+
+Phase 1 and later should assume:
+
+- explicit workspace-root configuration is required
+- OS-specific shell commands should be removed or isolated
+- diagnostic handling for missing executables is part of the port, not a
+  follow-up convenience
+- any "portable" Tauri plan must target Linux-friendly behavior first,
+  then preserve macOS compatibility
+
 ## Architecture Decision
 
 Use the same first-pass architecture as `lush-all`:
@@ -137,8 +209,9 @@ code exchange to a backend we control.
 
 ## Constraint 4: Cross-Platform Surface
 
-The current repo already uses `open`, which is macOS-specific. A Tauri
-port may initially target macOS only, then generalize.
+The current repo already uses `open`, which is macOS-specific. Because
+the expected test environment is Linux Docker on macOS, the port must
+avoid macOS-only runtime behavior in core flows.
 
 ## Work Phases
 
@@ -164,6 +237,11 @@ Establish the exact baseline and isolate the work.
 5. Confirm whether the initial Tauri target is:
    - macOS only
    - or cross-platform from the start
+
+### Phase 0 Resolution
+
+Target cross-platform-compatible behavior from the start, with Linux
+compatibility treated as a first-class requirement.
 
 ### Deliverables
 
