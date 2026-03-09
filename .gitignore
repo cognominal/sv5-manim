@@ -24,6 +24,10 @@ coverage/
 **/playwright-report/
 **/coverage/
 
+# Generated text render artifacts
+media/texts/
+**/media/texts/
+
 # Python generated caches
 __pycache__/
 **/__pycache__/
