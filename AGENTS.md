@@ -53,3 +53,5 @@
   commit history.
 - Commit rendered `.mp4` and `.png` artifacts only explicitly, when they
   are intentionally being refreshed for deployment or review.
+- Partial render `.mp4` chunks under `partial_movie_files/` are always
+  generated artifacts and must stay excluded from git.
