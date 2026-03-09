@@ -50,6 +50,8 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+workos-keys.txt
+**/workos-keys.txt
 
 # Editor / OS
 .DS_Store
