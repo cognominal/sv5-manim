@@ -32,6 +32,7 @@ const SCENE_CLASS_BY_KEY: Record<string, string> = {
   'export_profiles:profile_sample': 'ExportProfiles',
   'regression_golden_frames:golden_seed': 'RegressionGoldenFrames',
   'path_to_path_morphing:path_to_path': 'PathToPathMorphing',
+  'positioning_primitives:positioning_primitives': 'PositioningPrimitives',
   'transform_matching_tex:euler_rearrange': 'TransformMatchingTexDemo',
   'geometry_and_text_primitives:geometry_text_primitives':
     'GeometryAndTextPrimitives',

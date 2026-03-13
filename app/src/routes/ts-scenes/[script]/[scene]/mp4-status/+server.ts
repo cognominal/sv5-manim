@@ -100,10 +100,13 @@ export async function GET({ params, url }) {
           mp4MtimeMs >= sourceMtimeMs
       );
 
-  const playbackUrl =
+  const playbackBaseUrl =
     lang === 'ts'
       ? `/ts-mp4/${params.script}/${params.scene}?profile=${profile}`
       : `/py-mp4/${params.script}/${params.scene}?profile=${profile}`;
+  const playbackUrl = mp4MtimeMs
+    ? `${playbackBaseUrl}&v=${Math.trunc(mp4MtimeMs)}`
+    : playbackBaseUrl;
   const renderJob = lang === 'ts'
     ? getTsRenderJob(tsRenderJobKey(params.script, params.scene, profile))
     : null;
