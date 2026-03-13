@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { tsScripts } from '../app/src/lib/ts-feature-sweep/catalog';
+import { pyDurationSecFor } from '../app/src/lib/ts-feature-sweep/py-duration-ms';
 
 type Profile = 'lowres' | 'medres' | 'hires';
 
@@ -19,7 +20,6 @@ type ProfileSpec = {
   width: number;
   height: number;
   fps: number;
-  seconds: number;
 };
 
 type ExportReport = {
@@ -45,9 +45,9 @@ type FfprobeJson = {
 };
 
 const PROFILE_SPECS: Record<Profile, ProfileSpec> = {
-  lowres: { width: 854, height: 480, fps: 15, seconds: 7 },
-  medres: { width: 1280, height: 720, fps: 30, seconds: 7 },
-  hires: { width: 1920, height: 1080, fps: 60, seconds: 7 }
+  lowres: { width: 854, height: 480, fps: 15 },
+  medres: { width: 1280, height: 720, fps: 30 },
+  hires: { width: 1920, height: 1080, fps: 60 }
 };
 
 const execFileAsync = promisify(execFile);
@@ -142,10 +142,13 @@ async function probeMp4(path: string): Promise<ExportReport> {
 async function transcodeToMp4(
   sourceWebm: string,
   targetMp4: string,
-  fps: number
+  fps: number,
+  durationSec: number
 ): Promise<void> {
   await execFileAsync('ffmpeg', [
     '-y',
+    '-sseof',
+    `-${durationSec.toFixed(3)}`,
     '-i',
     sourceWebm,
     '-r',
@@ -256,6 +259,7 @@ async function main(): Promise<void> {
   }
 
   const spec = PROFILE_SPECS[args.profile];
+  const captureSec = pyDurationSecFor(args.scriptId, args.sceneId) ?? 6;
   const repoRoot = repoRootFromCwd(resolve(process.cwd()));
   const outPath = resolve(
     repoRoot,
@@ -295,7 +299,7 @@ async function main(): Promise<void> {
     await page.waitForSelector('svg[aria-label="TS scene stage"]', {
       timeout: 30_000
     });
-    await page.waitForTimeout(spec.seconds * 1000);
+    await page.waitForTimeout(captureSec * 1000);
 
     const video = page.video();
     await page.close();
@@ -306,7 +310,7 @@ async function main(): Promise<void> {
       throw new Error('TS sweep capture failed: no recorded video file');
     }
 
-    await transcodeToMp4(webmPath, outPath, spec.fps);
+    await transcodeToMp4(webmPath, outPath, spec.fps, captureSec);
     const report = await probeMp4(outPath);
     const thumbPath = outPath.replace(/\.mp4$/, '.thumb.png');
     const seek = Math.max(0, Math.min(report.durationSec * 0.5, 2));

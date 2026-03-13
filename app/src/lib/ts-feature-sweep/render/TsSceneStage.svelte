@@ -438,7 +438,15 @@
         cy={posY(mobject)}
         rx={rx}
         ry={ry}
-        fill="none"
+        fill={mobject.fill ?? 'none'}
+        fill-opacity={
+          mobject.fill && mobject.fill !== 'none'
+            ? alphaOf(
+              mobject,
+              drawProgress * (mobject.fillOpacity ?? 1)
+            )
+            : undefined
+        }
         stroke={mobject.stroke}
         stroke-opacity={alphaOf(mobject, drawProgress)}
         stroke-width={mobject.strokeWidth}

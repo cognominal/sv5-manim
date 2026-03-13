@@ -198,6 +198,8 @@ export class Scene {
   private baseMobjects = new Map<string, Mobject>();
   private baseSceneRoots: Mobject[] = [];
   private baseForegroundRoots: Mobject[] = [];
+  private liveSceneRoots: Mobject[] = [];
+  private liveForegroundRoots: Mobject[] = [];
   protected cameraOrientation: CameraOrientation = {
     phi: 0,
     theta: 0,
@@ -294,11 +296,13 @@ export class Scene {
     const introduced = new Set<string>();
     for (const animation of flat) {
       const root = animation._introducerRoot;
+      let introducedRoot = false;
       if (
         root &&
         (
           animation.kind === 'create' ||
           animation.kind === 'fadeIn' ||
+          animation.kind === 'moveAlongPath' ||
           animation.kind === 'replacementTransform'
         ) &&
         !introduced.has(root.id) &&
@@ -310,9 +314,13 @@ export class Scene {
         // then apply intro progress back down to 0 when needed.
         this.appendMobjects('scene', [root], true);
         introduced.add(root.id);
+        introducedRoot = true;
       }
       this.timeline.push({
         ...animation,
+        meta: introducedRoot
+          ? { ...(animation.meta ?? {}), introduced: true }
+          : animation.meta,
         runTime:
           animation.runTime ??
           trailingOpts?.run_time ??
@@ -376,6 +384,36 @@ export class Scene {
     );
   }
 
+  getLiveSceneRoots(): Mobject[] {
+    return this.liveSceneRoots;
+  }
+
+  getLiveForegroundRoots(): Mobject[] {
+    return this.liveForegroundRoots;
+  }
+
+  restoreLiveRootsFromBase(): void {
+    const baseSceneById = new Map(
+      this.baseSceneRoots.map((mobject) => [mobject.id, mobject])
+    );
+    const baseForegroundById = new Map(
+      this.baseForegroundRoots.map((mobject) => [mobject.id, mobject])
+    );
+
+    for (const mobject of this.liveSceneRoots) {
+      const snapshot = baseSceneById.get(mobject.id);
+      if (snapshot) {
+        restoreMobject(mobject, snapshot);
+      }
+    }
+    for (const mobject of this.liveForegroundRoots) {
+      const snapshot = baseForegroundById.get(mobject.id);
+      if (snapshot) {
+        restoreMobject(mobject, snapshot);
+      }
+    }
+  }
+
   getBaseCameraOrientation(): CameraOrientation {
     return { ...this.cameraOrientation };
   }
@@ -400,10 +438,14 @@ export class Scene {
     const rootSnapshots = layer === 'scene'
       ? this.baseSceneRoots
       : this.baseForegroundRoots;
+    const liveRoots = layer === 'scene'
+      ? this.liveSceneRoots
+      : this.liveForegroundRoots;
     const knownIds = new Set(rootSnapshots.map((mobject) => mobject.id));
     for (const mobject of mobjects) {
       if (knownIds.has(mobject.id)) continue;
       rootSnapshots.push(cloneMobject(mobject, mobject.id));
+      liveRoots.push(mobject);
       knownIds.add(mobject.id);
     }
   }
@@ -835,6 +877,19 @@ function removeChildById(mobject: Mobject, sourceId: string): boolean {
   return false;
 }
 
+function removeDuplicateRootIds(
+  scene: Scene,
+  targetId: string,
+  keep: Mobject
+): void {
+  scene.mobjects = scene.mobjects.filter((mobject) =>
+    mobject.id !== targetId || mobject === keep
+  );
+  scene.foregroundMobjects = scene.foregroundMobjects.filter((mobject) =>
+    mobject.id !== targetId || mobject === keep
+  );
+}
+
 function applyCompletedReplacementToScene(
   scene: Scene,
   sourceId: string,
@@ -849,9 +904,14 @@ function applyCompletedReplacementToScene(
     const mobject = scene.mobjects[i]!;
     if (mobject.id === sourceId) {
       scene.mobjects[i] = cloneMobject(replacement, replacement.id);
+      removeDuplicateRootIds(scene, targetId, scene.mobjects[i]!);
       return;
     }
     if (replaceChildById(mobject, sourceId, replacement)) {
+      scene.mobjects = scene.mobjects.filter((item) => item.id !== targetId);
+      scene.foregroundMobjects = scene.foregroundMobjects.filter(
+        (item) => item.id !== targetId
+      );
       return;
     }
   }
@@ -859,9 +919,14 @@ function applyCompletedReplacementToScene(
     const mobject = scene.foregroundMobjects[i]!;
     if (mobject.id === sourceId) {
       scene.foregroundMobjects[i] = cloneMobject(replacement, replacement.id);
+      removeDuplicateRootIds(scene, targetId, scene.foregroundMobjects[i]!);
       return;
     }
     if (replaceChildById(mobject, sourceId, replacement)) {
+      scene.mobjects = scene.mobjects.filter((item) => item.id !== targetId);
+      scene.foregroundMobjects = scene.foregroundMobjects.filter(
+        (item) => item.id !== targetId
+      );
       return;
     }
   }
@@ -1471,12 +1536,12 @@ function attachMobjectApi(mobject: Mobject): Mobject {
   mobject.slice = (start?: number, end?: number): Mobject[] =>
     (mobject.children ?? []).slice(start, end);
   mobject.setX = (x: number): Mobject => {
-    mobject.x = x;
+    mobject.x = CENTER_X + x * UNIT_PX;
     return mobject;
   };
   mobject.set_x = mobject.setX;
   mobject.setY = (y: number): Mobject => {
-    mobject.y = y;
+    mobject.y = CENTER_Y - y * UNIT_PX;
     return mobject;
   };
   mobject.set_y = mobject.setY;
@@ -1967,8 +2032,9 @@ export function evaluateSceneAtTime(
   const replacements: EvaluatedSceneState['replacements'] = [];
   const completedReplacementSources = new Set<string>();
   const completedReplacementTargets = new Set<string>();
-  scene.mobjects = scene.getBaseSceneRoots();
-  scene.foregroundMobjects = scene.getBaseForegroundRoots();
+  scene.restoreLiveRootsFromBase();
+  scene.mobjects = scene.getLiveSceneRoots();
+  scene.foregroundMobjects = scene.getLiveForegroundRoots();
 
   const topLevel = [...scene.mobjects, ...scene.foregroundMobjects];
   const topLevelIds = new Set(topLevel.map((mobject) => mobject.id));
@@ -1978,6 +2044,9 @@ export function evaluateSceneAtTime(
   }
   for (const step of scene.timeline) {
     if (step.targetId && introKinds.has(step.kind)) {
+      progressById.set(step.targetId, 0);
+    }
+    if (step.kind === 'moveAlongPath' && step.targetId && step.meta?.introduced) {
       progressById.set(step.targetId, 0);
     }
     if (step.kind === 'replacementTransform' && step.targetId) {
@@ -2064,6 +2133,8 @@ export function evaluateSceneAtTime(
             ? staggeredCreateProgress(step, stepProgress)
             : stepProgress;
           progressById.set(step.targetId, progress);
+        } else if (step.kind === 'moveAlongPath' && step.meta?.introduced) {
+          progressById.set(step.targetId, timeSec >= phaseStart ? 1 : 0);
         } else if (step.kind === 'fadeOut') {
           const progress = Math.max(0, 1 - stepProgress);
           progressById.set(step.targetId, progress);
@@ -3952,13 +4023,14 @@ export function MoveAlongPath(
   target: Mobject,
   path: Mobject,
   opts?: AnimationOpts
-): Omit<Animation, 'runTime' | 'phase'> & { runTime?: number } {
+): PendingAnimation {
   return {
     kind: 'moveAlongPath',
     targetId: target.id,
     pathId: path.id,
     rateFunc: normalizeRateFunction(opts),
     runTime: opts?.runTime,
+    _introducerRoot: target,
   };
 }
 
