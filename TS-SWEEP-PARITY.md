@@ -19,6 +19,16 @@ surface and the current Svelte preview renderer.
 - `Not in parity`: major primitives or rendering behavior are still
   missing.
 
+## Longer-Term Plan
+
+- Keep the current function-based TS scene builders for now.
+- Consider adding optional class-based TS scenes later so authoring can
+  mirror Python Manim's `class ... (Scene)` and `construct()` structure
+  more closely.
+- Treat that as an authoring-parity improvement, not a substitute for
+  runtime parity work in [`app/src/lib/manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/manim-api.ts)
+  and the preview/export pipeline.
+
 ## In Parity
 
 ### 01 `mobjects_basics`
