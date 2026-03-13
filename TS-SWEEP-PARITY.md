@@ -221,7 +221,12 @@ surface and the current Svelte preview renderer.
   projected `ThreeDAxes()` primitive. The SVG preview renderer evaluates
   camera motion over time and projects 3D paths into the existing stage,
   so the TS scene now follows the same structure as the Python source
-  instead of using placeholder 2D shapes.
+  instead of using placeholder 2D shapes. The `ThreeDAxes()` library
+  defaults were also expanded to Python-like scene extents and tick
+  spacing so the rendered axes and tick marks read at the same visual
+  scale as the Python reference. Ambient camera rotation now also uses
+  Manim-style radian rates, and capture-mode rendering uses a bare black
+  frame so TS MP4 comparisons are not skewed by app chrome.
 
 ### 09 `lighting_and_shading_3d`
 

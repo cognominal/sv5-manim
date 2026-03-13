@@ -1847,7 +1847,8 @@ function cameraOrientationAtTime(scene: Scene, timeSec: number): CameraOrientati
       : (phaseStarts[rotation.endPhase] ?? elapsed);
     const activeUntil = Math.min(timeSec, endTime);
     if (activeUntil <= startTime) continue;
-    camera.theta += rotation.rate * 180 * (activeUntil - startTime);
+    camera.theta -=
+      rotation.rate * (180 / Math.PI) * (activeUntil - startTime);
   }
   return camera;
 }
@@ -3164,8 +3165,8 @@ export function ThreeDAxes(opts?: {
   const id = opts?.id ?? autoId('three_d_axes');
   const color = opts?.color ?? '#e2e8f0';
   const strokeWidth = opts?.strokeWidth ?? 4;
-  const length = opts?.length ?? 2.8;
-  const tickStep = opts?.tickStep ?? 0.5;
+  const length = opts?.length ?? 6;
+  const tickStep = opts?.tickStep ?? 1;
   const axisLine = (
     axisId: string,
     start: Point3D,

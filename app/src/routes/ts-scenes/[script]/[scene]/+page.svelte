@@ -649,6 +649,7 @@
       <TsSceneStage
         mobjects={evaluatedScene.mobjects}
         progressById={evaluatedScene.progressById}
+        bare={true}
         replacements={evaluatedScene.replacements}
         completedReplacementSources={evaluatedScene.completedReplacementSources}
         completedReplacementTargets={evaluatedScene.completedReplacementTargets}

@@ -9,6 +9,7 @@
   type Props = {
     mobjects: Mobject[];
     progressById: Map<string, number>;
+    bare?: boolean;
     positionsById?: Map<string, { x: number; y: number }>;
     scaleById?: Map<string, number>;
     replacements?: Array<{
@@ -25,6 +26,7 @@
   const {
     mobjects,
     progressById,
+    bare = false,
     positionsById = new Map<string, { x: number; y: number }>(),
     scaleById = new Map<string, number>(),
     replacements = [],
@@ -253,9 +255,15 @@
   viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
   role="img"
   aria-label="TS scene stage"
-  class="w-full rounded-xl border border-slate-800 bg-slate-950"
+  class={`w-full ${bare ? 'bg-black' : 'rounded-xl border border-slate-800 bg-slate-950'}`}
 >
-  <rect x="0" y="0" width={STAGE_WIDTH} height={STAGE_HEIGHT} fill="#020617" />
+  <rect
+    x="0"
+    y="0"
+    width={STAGE_WIDTH}
+    height={STAGE_HEIGHT}
+    fill={bare ? '#000000' : '#020617'}
+  />
   {#each replacements as replacement (replacement.sourceId + ':' + replacement.targetId)}
     {@const from =
       replacement.source ?? mobjects.find((m) => m.id === replacement.sourceId)}
