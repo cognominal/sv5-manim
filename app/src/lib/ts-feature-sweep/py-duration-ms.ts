@@ -8,7 +8,7 @@ export const pyDurationSecByScene: Record<string, number> = {
   'mobjects_basics:basics_layout': 2.0,
   'open_gl_vs_cairo_parity:cairo_parity': 0.5,
   'open_gl_vs_cairo_parity:opengl_parity': 0.5,
-  'path_to_path_morphing:path_to_path': 2.2,
+  'path_to_path_morphing:path_to_path': 3.1,
   'positioning_primitives:positioning_primitives': 2.0,
   'transform_matching_tex:euler_rearrange': 2.0,
   'paths_and_morphs:path_morph': 4.5,

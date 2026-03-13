@@ -1,9 +1,9 @@
-from manim import Create, ReplacementTransform, Scene, Text, VMobject
+from manim import Create, ReplacementTransform, Scene, Text, UP, VMobject
 
 
 class PathToPathMorphing(Scene):
     def construct(self):
-        title = Text("Path to Path Morph", font_size=40).to_edge(0.9 * 1j)
+        title = Text("Path to Path Morph", font_size=40).to_edge(UP, buff=0.9)
 
         zig = VMobject(color="#4CC9F0", stroke_width=7)
         zig.set_points_as_corners([

@@ -114,6 +114,20 @@ function parseRate(rate: string | undefined): number {
   return num / den;
 }
 
+async function probeMediaDuration(path: string): Promise<number> {
+  const { stdout } = await execFileAsync('ffprobe', [
+    '-v',
+    'error',
+    '-show_entries',
+    'format=duration',
+    '-of',
+    'default=nw=1:nk=1',
+    path
+  ]);
+  const duration = Number(stdout.trim());
+  return Number.isFinite(duration) ? duration : 0;
+}
+
 async function probeMp4(path: string): Promise<ExportReport> {
   const { stdout } = await execFileAsync('ffprobe', [
     '-v',
@@ -143,14 +157,17 @@ async function transcodeToMp4(
   sourceWebm: string,
   targetMp4: string,
   fps: number,
+  startSec: number,
   durationSec: number
 ): Promise<void> {
   await execFileAsync('ffmpeg', [
     '-y',
-    '-sseof',
-    `-${durationSec.toFixed(3)}`,
+    '-ss',
+    startSec.toFixed(3),
     '-i',
     sourceWebm,
+    '-t',
+    durationSec.toFixed(3),
     '-r',
     String(fps),
     '-c:v',
@@ -288,9 +305,10 @@ async function main(): Promise<void> {
       }
     });
     const page = await context.newPage();
+    const recordingStartMs = Date.now();
     const targetUrl =
       `http://127.0.0.1:${args.port}/ts-scenes/` +
-      `${args.scriptId}/${args.sceneId}?capture=1`;
+      `${args.scriptId}/${args.sceneId}?capture=1&autoplay=0`;
 
     await page.goto(targetUrl, {
       waitUntil: 'domcontentloaded',
@@ -298,6 +316,10 @@ async function main(): Promise<void> {
     });
     await page.waitForSelector('svg[aria-label="TS scene stage"]', {
       timeout: 30_000
+    });
+    const captureStartSec = (Date.now() - recordingStartMs) / 1000;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('ts-sweep-capture-start'));
     });
     await page.waitForTimeout(captureSec * 1000);
 
@@ -310,7 +332,18 @@ async function main(): Promise<void> {
       throw new Error('TS sweep capture failed: no recorded video file');
     }
 
-    await transcodeToMp4(webmPath, outPath, spec.fps, captureSec);
+    const sourceDurationSec = await probeMediaDuration(webmPath);
+    const boundedStartSec = Math.max(
+      0,
+      Math.min(captureStartSec, sourceDurationSec - captureSec)
+    );
+    await transcodeToMp4(
+      webmPath,
+      outPath,
+      spec.fps,
+      boundedStartSec,
+      captureSec
+    );
     const report = await probeMp4(outPath);
     const thumbPath = outPath.replace(/\.mp4$/, '.thumb.png');
     const seek = Math.max(0, Math.min(report.durationSec * 0.5, 2));

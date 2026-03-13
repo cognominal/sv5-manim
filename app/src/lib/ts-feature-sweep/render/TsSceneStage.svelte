@@ -216,6 +216,30 @@
     return d;
   }
 
+  function cubicPathFrom(points: Point[], closed: boolean): string {
+    if (points.length < 4 || points.length % 4 !== 0) {
+      return polylinePathFrom(points, closed);
+    }
+    let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    for (let i = 0; i + 3 < points.length; i += 4) {
+      const c1 = points[i + 1]!;
+      const c2 = points[i + 2]!;
+      const end = points[i + 3]!;
+      d +=
+        ` C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}` +
+        ` ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}` +
+        ` ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+    }
+    return closed ? `${d} Z` : d;
+  }
+
+  function pointsAreClosed(points: Point[]): boolean {
+    if (points.length < 2) return false;
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    return Math.hypot(last.x - first.x, last.y - first.y) <= 0.5;
+  }
+
   function lerpPoints(
     a: Array<{ x: number; y: number }>,
     b: Array<{ x: number; y: number }>,
@@ -232,8 +256,55 @@
     return out;
   }
 
+  function replacementPoints(
+    from: Mobject,
+    to: Mobject
+  ): {
+    fromPts: Array<{ x: number; y: number }>;
+    toPts: Array<{ x: number; y: number }>;
+    closed: boolean;
+  } {
+    if (from.kind === 'path' && to.kind === 'path') {
+      const source = from.points ?? [];
+      const target = to.points ?? [];
+      if (source.length > 0 && source.length === target.length) {
+        return {
+          fromPts: source,
+          toPts: target,
+          closed: (from.closed ?? true) || (to.closed ?? true)
+        };
+      }
+      const count = Math.max(source.length, target.length);
+      return {
+        fromPts: resamplePathPoints(source, count, from.closed ?? true),
+        toPts: resamplePathPoints(target, count, to.closed ?? true),
+        closed: (from.closed ?? true) || (to.closed ?? true)
+      };
+    }
+    const fromPts = pointsFor(from, 72);
+    const toPts = pointsFor(to, 72);
+    return {
+      fromPts,
+      toPts,
+      closed: (from.closed ?? true) || (to.closed ?? true)
+    };
+  }
+
   function lerpNumber(a: number, b: number, t: number): number {
     return a + (b - a) * t;
+  }
+
+  function parseHexColor(color: string): [number, number, number] | null {
+    const normalized = color.startsWith('#') ? color.slice(1) : color;
+    if (![3, 6].includes(normalized.length)) return null;
+    const full = normalized.length === 3
+      ? normalized.split('').map((part) => part + part).join('')
+      : normalized;
+    const channels = [0, 2, 4].map((offset) =>
+      Number.parseInt(full.slice(offset, offset + 2), 16)
+    );
+    if (channels.some((value) => Number.isNaN(value))) return null;
+    return channels as [number, number, number];
   }
 
   function replacementColor(
@@ -241,9 +312,27 @@
     to: string | undefined,
     progress: number
   ): string {
-    return progress < 0.5
-      ? (from ?? to ?? '#e2e8f0')
-      : (to ?? from ?? '#e2e8f0');
+    const fallback = from ?? to ?? '#e2e8f0';
+    if (!from || !to) return fallback;
+    const fromRgb = parseHexColor(from);
+    const toRgb = parseHexColor(to);
+    if (!fromRgb || !toRgb) {
+      return progress < 0.5 ? from : to;
+    }
+    const mixed = fromRgb.map((channel, index) =>
+      Math.round(lerpNumber(channel, toRgb[index]!, progress))
+    );
+    return `#${mixed.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  function replacementAlpha(
+    from: Mobject,
+    to: Mobject,
+    progress: number
+  ): number {
+    const fromAlpha = from.opacity ?? 1;
+    const toAlpha = to.opacity ?? 1;
+    return lerpNumber(fromAlpha, toAlpha, progress);
   }
 
   const orderedMobjects = $derived(
@@ -264,35 +353,52 @@
     height={STAGE_HEIGHT}
     fill={bare ? '#000000' : '#020617'}
   />
-  {#each replacements as replacement (replacement.sourceId + ':' + replacement.targetId)}
+  {#each replacements as replacement, index (
+    `${replacement.sourceId}:${replacement.targetId}:${index}`
+  )}
     {@const from =
       replacement.source ?? mobjects.find((m) => m.id === replacement.sourceId)}
     {@const to =
       replacement.target ?? mobjects.find((m) => m.id === replacement.targetId)}
     {#if from && to}
-      {@const fromPts = pointsFor(from, 72)}
-      {@const toPts = pointsFor(to, 72)}
-      {@const closed = (from.closed ?? true) || (to.closed ?? true)}
-      {@const d = polylinePathFrom(
-        lerpPoints(fromPts, toPts, replacement.progress),
-        closed
+      {@const replacementPts = replacementPoints(from, to)}
+      {@const interpolatedPoints = lerpPoints(
+        replacementPts.fromPts,
+        replacementPts.toPts,
+        replacement.progress
       )}
+      {@const replacementClosed =
+        replacementPts.closed && pointsAreClosed(interpolatedPoints)}
+      {@const d =
+        from.pathRenderMode === 'cubic' &&
+        to.pathRenderMode === 'cubic'
+          ? cubicPathFrom(interpolatedPoints, replacementClosed)
+          : polylinePathFrom(interpolatedPoints, replacementClosed)}
       {#if d}
         <path
           d={d}
-          fill={closed ? replacementColor(from.fill, to.fill, replacement.progress) : 'none'}
-          fill-opacity={closed ? 1 : undefined}
+          fill={
+            replacementClosed
+              ? replacementColor(from.fill, to.fill, replacement.progress)
+              : 'none'
+          }
+          fill-opacity={
+            replacementClosed
+              ? replacementAlpha(from, to, replacement.progress)
+              : undefined
+          }
           stroke={replacementColor(from.stroke, to.stroke, replacement.progress)}
           stroke-width={lerpNumber(
             from.strokeWidth ?? 8,
             to.strokeWidth ?? from.strokeWidth ?? 8,
             replacement.progress
           )}
+          opacity={replacementAlpha(from, to, replacement.progress)}
         />
       {/if}
     {/if}
   {/each}
-  {#each orderedMobjects as mobject (mobject.id)}
+  {#each orderedMobjects as mobject, index (`${mobject.id}:${index}`)}
     {@const replacedActive = replacements.some((r) =>
       r.sourceId === mobject.id || r.targetId === mobject.id
     )}

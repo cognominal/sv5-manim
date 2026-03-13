@@ -116,15 +116,9 @@ export function reduceTimelineState(
   }
 
   if (state.lastTickMs === 0) {
-    const nextTime = clampTime(
-      state.currentTimeSec + state.frameStepSec,
-      state.durationSec,
-    );
     return {
       ...state,
-      currentTimeSec: nextTime,
       lastTickMs: command.nowMs,
-      isPlaying: nextTime >= state.durationSec ? false : state.isPlaying,
     };
   }
 

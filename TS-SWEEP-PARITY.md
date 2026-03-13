@@ -118,7 +118,11 @@ surface and the current Svelte preview renderer.
 - Status: `Parity`
 - Notes:
   Uses `Text.toEdge`, path opacity control, `Create`, and
-  `ReplacementTransform` in the same model as the original.
+  `ReplacementTransform` in the same model as the original. Runtime
+  parity here now depends on Manim-like cubic point alignment for path
+  replacements, the Manim default `smooth` rate function, and capture
+  playback/export starting from the true animation start instead of a
+  trimmed late clip window.
 
 ### 17 `positioning_primitives`
 

@@ -7,7 +7,7 @@ import {
 } from '$lib/manim';
 
 export function buildPathToPathMorphScene(): Scene {
-  const scene = new Scene(0.9);
+  const scene = new Scene();
   const title = Text('Path to Path Morph', {
     id: 'title',
     fontSize: 40
@@ -17,11 +17,11 @@ export function buildPathToPathMorphScene(): Scene {
     stroke: '#4CC9F0',
     strokeWidth: 7,
     points: [
-      { x: 220, y: 300 },
-      { x: 300, y: 190 },
-      { x: 380, y: 320 },
-      { x: 460, y: 190 },
-      { x: 540, y: 300 }
+      [-3.0, 0.6, 0.0],
+      [-2.0, -0.8, 0.0],
+      [-1.0, 0.9, 0.0],
+      [0.0, -0.8, 0.0],
+      [1.0, 0.6, 0.0]
     ],
     closed: false
   });
@@ -30,12 +30,13 @@ export function buildPathToPathMorphScene(): Scene {
     stroke: '#F72585',
     strokeWidth: 7,
     points: [
-      { x: 230, y: 260 },
-      { x: 320, y: 180 },
-      { x: 430, y: 180 },
-      { x: 530, y: 260 },
-      { x: 430, y: 340 },
-      { x: 320, y: 340 }
+      [-2.8, 0.1, 0.0],
+      [-1.7, -0.9, 0.0],
+      [-0.3, -0.9, 0.0],
+      [0.9, 0.1, 0.0],
+      [-0.3, 1.1, 0.0],
+      [-1.7, 1.1, 0.0],
+      [-2.8, 0.1, 0.0]
     ],
     closed: true
   });

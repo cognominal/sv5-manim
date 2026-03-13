@@ -108,6 +108,7 @@
   let clientReady = $state(false);
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
+  const captureAutoplay = $derived(page.url.searchParams.get('autoplay') !== '0');
   const layoutMode = $derived(
     page.url.searchParams.get('layout') === 'code-only'
       ? 'code-only'
@@ -140,6 +141,21 @@
     timeline = reduceTimelineState(timeline, command);
   }
 
+  function forceNormalMode(): void {
+    if (timeline.mode === 'normal') return;
+    dispatch({ type: 'setMode', mode: 'normal' });
+  }
+
+  function startCapturePlayback(): void {
+    timeline = {
+      ...timeline,
+      mode: 'normal',
+      isPlaying: true,
+      currentTimeSec: 0,
+      lastTickMs: 0,
+    };
+  }
+
   $effect(() => {
     sceneResolved = false;
     sceneBuildError = '';
@@ -164,7 +180,7 @@
       const durationSec = targetSec > 0 ? targetSec : 6;
       timeline = {
         ...createTimelineControllerState(durationSec, FRAME_STEP_SEC),
-        isPlaying: true,
+        isPlaying: captureMode ? captureAutoplay : true,
       };
     } catch (cause) {
       scene = null;
@@ -177,15 +193,13 @@
   });
 
   $effect(() => {
+    sceneResolved;
+    if (!scene) return;
+    forceNormalMode();
+  });
+
+  $effect(() => {
     if (timeline.mode !== 'normal' || !timeline.isPlaying) return;
-
-    if (captureMode) {
-      const interval = window.setInterval(() => {
-        dispatch({ type: 'tick', nowMs: performance.now() });
-      }, FRAME_STEP_SEC * 1000);
-      return () => clearInterval(interval);
-    }
-
     let raf = 0;
     const tick = (now: number) => {
       dispatch({ type: 'tick', nowMs: now });
@@ -352,6 +366,14 @@
     restoreLayoutFromStorage();
     restoreMp4PrefsFromStorage();
     restoreCodeMirrorStateFromStorage();
+
+    if (captureMode && !captureAutoplay) {
+      const onStartCapture = () => startCapturePlayback();
+      window.addEventListener('ts-sweep-capture-start', onStartCapture);
+      return () => {
+        window.removeEventListener('ts-sweep-capture-start', onStartCapture);
+      };
+    }
   });
 
   const tsIsDirty = $derived(tsEditorText !== tsBaseText);
@@ -423,6 +445,7 @@
   }
 
   function onModeChange(next: Mode): void {
+    if (next !== 'normal') return;
     dispatch({ type: 'setMode', mode: next });
   }
 
@@ -473,6 +496,7 @@
   async function generateMp4(profile: 'lowres' | 'medres' | 'hires'):
     Promise<void> {
     if (exportingProfile) return;
+    forceNormalMode();
     exportingProfile = profile;
     exportMessage = '';
     exportError = '';
@@ -828,6 +852,7 @@
                     onclick={() => {
                       mp4Lang = 'ts';
                       exportReport = null;
+                      void generateMp4(mp4Profile);
                     }}
                   >
                     ts
@@ -841,6 +866,7 @@
                     onclick={() => {
                       mp4Lang = 'py';
                       exportReport = null;
+                      void generateMp4(mp4Profile);
                     }}
                   >
                     py

@@ -53,6 +53,7 @@ export type Mobject = {
   points3d?: Point3D[];
   center3d?: Point3D;
   closed?: boolean;
+  pathRenderMode?: 'polyline' | 'cubic';
   children?: Mobject[];
   token?: string;
   is3d?: boolean;
@@ -900,14 +901,15 @@ function applyCompletedReplacementToScene(
       .find((mobject) => mobject.id === targetId) ??
     scene.getBaseMobject(targetId);
   if (!replacement) return;
+  const finalized = cloneMobject(replacement, replacement.id);
   for (let i = 0; i < scene.mobjects.length; i += 1) {
     const mobject = scene.mobjects[i]!;
     if (mobject.id === sourceId) {
-      scene.mobjects[i] = cloneMobject(replacement, replacement.id);
+      scene.mobjects[i] = cloneMobject(finalized, finalized.id);
       removeDuplicateRootIds(scene, targetId, scene.mobjects[i]!);
       return;
     }
-    if (replaceChildById(mobject, sourceId, replacement)) {
+    if (replaceChildById(mobject, sourceId, finalized)) {
       scene.mobjects = scene.mobjects.filter((item) => item.id !== targetId);
       scene.foregroundMobjects = scene.foregroundMobjects.filter(
         (item) => item.id !== targetId
@@ -918,11 +920,11 @@ function applyCompletedReplacementToScene(
   for (let i = 0; i < scene.foregroundMobjects.length; i += 1) {
     const mobject = scene.foregroundMobjects[i]!;
     if (mobject.id === sourceId) {
-      scene.foregroundMobjects[i] = cloneMobject(replacement, replacement.id);
+      scene.foregroundMobjects[i] = cloneMobject(finalized, finalized.id);
       removeDuplicateRootIds(scene, targetId, scene.foregroundMobjects[i]!);
       return;
     }
-    if (replaceChildById(mobject, sourceId, replacement)) {
+    if (replaceChildById(mobject, sourceId, finalized)) {
       scene.mobjects = scene.mobjects.filter((item) => item.id !== targetId);
       scene.foregroundMobjects = scene.foregroundMobjects.filter(
         (item) => item.id !== targetId
@@ -949,11 +951,32 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export const linear: RateFunction = (t) => t;
-export const smooth: RateFunction = (t) =>
-  t * t * (3 - 2 * t);
-export const there_and_back: RateFunction = (t) =>
-  t < 0.5 ? smooth(t * 2) : smooth((1 - t) * 2);
+function sigmoid(value: number): number {
+  return 1 / (1 + Math.exp(-value));
+}
+
+export const linear: RateFunction = (t) =>
+  t <= 0 ? 0 : (t >= 1 ? 1 : t);
+
+export const smooth: RateFunction = (t) => {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const inflection = 10;
+  const error = sigmoid(-inflection / 2);
+  return Math.min(
+    Math.max(
+      (sigmoid(inflection * (t - 0.5)) - error) / (1 - 2 * error),
+      0
+    ),
+    1
+  );
+};
+
+export const there_and_back: RateFunction = (t) => {
+  if (t < 0 || t > 1) return 0;
+  const newT = t < 0.5 ? 2 * t : 2 * (1 - t);
+  return smooth(newT);
+};
 
 function rateFunctionByName(name: string): RateFunction {
   switch (name) {
@@ -973,7 +996,7 @@ function resolveRateFunction(
 ): RateFunction {
   if (typeof value === 'function') return value;
   if (typeof value === 'string') return rateFunctionByName(value);
-  return linear;
+  return smooth;
 }
 
 function normalizeRateFunction(
@@ -1002,6 +1025,167 @@ function parsePointsMeta(value: unknown): Point[] | null {
   } catch {
     return null;
   }
+}
+
+function lerpPoint(a: Point, b: Point, t: number): Point {
+  return {
+    x: lerp(a.x, b.x, t),
+    y: lerp(a.y, b.y, t),
+  };
+}
+
+function splitCubicAt(
+  curve: [Point, Point, Point, Point],
+  t: number
+): [[Point, Point, Point, Point], [Point, Point, Point, Point]] {
+  const [p0, p1, p2, p3] = curve;
+  const p01 = lerpPoint(p0, p1, t);
+  const p12 = lerpPoint(p1, p2, t);
+  const p23 = lerpPoint(p2, p3, t);
+  const p012 = lerpPoint(p01, p12, t);
+  const p123 = lerpPoint(p12, p23, t);
+  const p0123 = lerpPoint(p012, p123, t);
+  return [
+    [p0, p01, p012, p0123],
+    [p0123, p123, p23, p3]
+  ];
+}
+
+function partialCubicPoints(
+  curve: [Point, Point, Point, Point],
+  a: number,
+  b: number
+): [Point, Point, Point, Point] {
+  if (a <= 0 && b >= 1) return curve;
+  if (b <= a) {
+    const point = a <= 0 ? curve[0] : (a >= 1 ? curve[3] : splitCubicAt(curve, a)[1][0]);
+    return [point, point, point, point];
+  }
+  if (a <= 0) {
+    return splitCubicAt(curve, b)[0];
+  }
+  if (b >= 1) {
+    return splitCubicAt(curve, a)[1];
+  }
+  const [, right] = splitCubicAt(curve, a);
+  const span = (b - a) / (1 - a);
+  return splitCubicAt(right, span)[0];
+}
+
+function subdivideCubic(
+  curve: [Point, Point, Point, Point],
+  divisions: number
+): Array<[Point, Point, Point, Point]> {
+  if (divisions <= 1) return [curve];
+  const parts: Array<[Point, Point, Point, Point]> = [];
+  for (let index = 0; index < divisions; index += 1) {
+    parts.push(
+      partialCubicPoints(curve, index / divisions, (index + 1) / divisions)
+    );
+  }
+  return parts;
+}
+
+function lineCurveFromPoints(
+  start: Point,
+  end: Point
+): [Point, Point, Point, Point] {
+  return [
+    start,
+    lerpPoint(start, end, 1 / 3),
+    lerpPoint(start, end, 2 / 3),
+    end
+  ];
+}
+
+function cubicTuplesFromPath(points: Point[]): Array<[Point, Point, Point, Point]> {
+  if (points.length <= 1) return [];
+  const tuples: Array<[Point, Point, Point, Point]> = [];
+  for (let index = 1; index < points.length; index += 1) {
+    tuples.push(lineCurveFromPoints(points[index - 1]!, points[index]!));
+  }
+  return tuples;
+}
+
+function flattenCubicTuples(
+  tuples: Array<[Point, Point, Point, Point]>
+): Point[] {
+  return tuples.flatMap((curve) => curve.map((point) => ({ ...point })));
+}
+
+function remapBezierCurves(
+  tuples: Array<[Point, Point, Point, Point]>,
+  newCurveCount: number
+): Array<[Point, Point, Point, Point]> {
+  if (tuples.length === 0 || newCurveCount <= 0) return [];
+  if (tuples.length === newCurveCount) return tuples;
+
+  const splitFactors = Array(tuples.length).fill(0);
+  for (let index = 0; index < newCurveCount; index += 1) {
+    const curveIndex = Math.floor((index * tuples.length) / newCurveCount);
+    splitFactors[curveIndex] += 1;
+  }
+
+  const remapped: Array<[Point, Point, Point, Point]> = [];
+  tuples.forEach((curve, index) => {
+    remapped.push(...subdivideCubic(curve, splitFactors[index]!));
+  });
+  return remapped;
+}
+
+function alignPathPointsForReplacement(
+  source: Point[],
+  target: Point[]
+): { sourcePoints: Point[]; targetPoints: Point[] } | null {
+  if (source.length === 0 || target.length === 0) return null;
+  if (source.length === 1 && target.length === 1) {
+    return {
+      sourcePoints: Array.from({ length: 4 }, () => ({ ...source[0]! })),
+      targetPoints: Array.from({ length: 4 }, () => ({ ...target[0]! })),
+    };
+  }
+
+  const sourceCurves = cubicTuplesFromPath(source);
+  const targetCurves = cubicTuplesFromPath(target);
+  if (sourceCurves.length === 0 || targetCurves.length === 0) return null;
+
+  const curveCount = Math.max(sourceCurves.length, targetCurves.length);
+  return {
+    sourcePoints: flattenCubicTuples(
+      remapBezierCurves(sourceCurves, curveCount)
+    ),
+    targetPoints: flattenCubicTuples(
+      remapBezierCurves(targetCurves, curveCount)
+    ),
+  };
+}
+
+function prepareReplacementMobjects(
+  source: Mobject | undefined,
+  target: Mobject | undefined
+): { source?: Mobject; target?: Mobject } {
+  const sourceClone = source ? cloneMobject(source, source.id) : undefined;
+  const targetClone = target ? cloneMobject(target, target.id) : undefined;
+
+  if (
+    sourceClone?.kind === 'path' &&
+    targetClone?.kind === 'path' &&
+    sourceClone.points &&
+    targetClone.points
+  ) {
+    const aligned = alignPathPointsForReplacement(
+      sourceClone.points,
+      targetClone.points
+    );
+    if (aligned) {
+      sourceClone.points = aligned.sourcePoints;
+      targetClone.points = aligned.targetPoints;
+      sourceClone.pathRenderMode = 'cubic';
+      targetClone.pathRenderMode = 'cubic';
+    }
+  }
+
+  return { source: sourceClone, target: targetClone };
 }
 
 function snapshotMeta(mobject: Mobject): Animation['meta'] {
@@ -2106,12 +2290,13 @@ export function evaluateSceneAtTime(
           const target = pathLookup.get(step.targetId) ??
             scene.getBaseMobject(step.targetId);
           if (stepProgress > 0 && stepProgress < 1) {
+            const prepared = prepareReplacementMobjects(source, target);
             replacements.push({
               sourceId,
               targetId: step.targetId,
               progress: stepProgress,
-              source: source ? cloneMobject(source, source.id) : undefined,
-              target: target ? cloneMobject(target, target.id) : undefined,
+              source: prepared.source,
+              target: prepared.target,
             });
           }
           if (stepProgress >= 1) {
@@ -2821,7 +3006,7 @@ export function MathTex(
 export function Path(
   id: string,
   opts: {
-    points: Point[];
+    points: PointLike[];
     stroke: string;
     strokeWidth?: number;
     closed?: boolean;
@@ -2831,7 +3016,7 @@ export function Path(
   return attachMobjectApi({
     id,
     kind: 'path',
-    points: opts.points,
+    points: opts.points.map((point) => fromPointLike(point)),
     stroke: opts.stroke,
     strokeWidth: opts.strokeWidth ?? 8,
     fill: opts.fill ?? 'none',
