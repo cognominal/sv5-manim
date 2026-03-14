@@ -46,5 +46,24 @@ function pySourcesPlugin(): Plugin {
 }
 
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/three')) {
+            return 'three';
+          }
+          if (id.includes('/@codemirror/')) {
+            return 'codemirror';
+          }
+          if (id.includes('mathjax-full') || id.includes('/katex/')) {
+            return 'math';
+          }
+          return undefined;
+        }
+      }
+    }
+  },
   plugins: [pySourcesPlugin(), tailwindcss(), sveltekit()],
 });

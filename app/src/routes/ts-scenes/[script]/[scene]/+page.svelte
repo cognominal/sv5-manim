@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
   import {
     createTimelineControllerState,
     progress01,
@@ -14,6 +15,7 @@
     type Scene
   } from '$lib/manim';
   import TsSceneStage from '$lib/ts-feature-sweep/render/TsSceneStage.svelte';
+  import WebGpuSceneStage from '$lib/ts-feature-sweep/render/WebGpuSceneStage.svelte';
   import SplitPane from '$lib/vendor/rich-split-pane/SplitPane.svelte';
   import type { Length } from '$lib/vendor/rich-split-pane/types';
   import ReadOnlyCodeMirror, {
@@ -109,6 +111,9 @@
   const progress = $derived(progress01(timeline));
   const captureMode = $derived(page.url.searchParams.get('capture') === '1');
   const captureAutoplay = $derived(page.url.searchParams.get('autoplay') !== '0');
+  const rendererMode = $derived(
+    page.url.searchParams.get('renderer') === 'gpu' ? 'gpu' : 'svg'
+  );
   const layoutMode = $derived(
     page.url.searchParams.get('layout') === 'code-only'
       ? 'code-only'
@@ -154,6 +159,21 @@
       currentTimeSec: 0,
       lastTickMs: 0,
     };
+  }
+
+  async function toggleRendererPreview(): Promise<void> {
+    if (captureMode) return;
+    const nextUrl = new URL(page.url);
+    if (rendererMode === 'gpu') {
+      nextUrl.searchParams.delete('renderer');
+    } else {
+      nextUrl.searchParams.set('renderer', 'gpu');
+    }
+    await goto(`${nextUrl.pathname}${nextUrl.search}`, {
+      keepFocus: true,
+      noScroll: true,
+      replaceState: true
+    });
   }
 
   $effect(() => {
@@ -785,6 +805,13 @@
                 >
                   Reset
                 </button>
+                <button
+                  class="rounded-md border border-cyan-700 bg-cyan-950/40 px-3
+                  py-1.5 text-sm text-cyan-200"
+                  onclick={() => void toggleRendererPreview()}
+                >
+                  {rendererMode === 'gpu' ? 'SVG preview' : 'GPU preview'}
+                </button>
                 {#if !mp4Status?.deploymentReadOnly}
                   <button
                     class="rounded-md border border-emerald-700 bg-emerald-950/60
@@ -827,13 +854,23 @@
             </div>
 
             {#if scene}
-              <TsSceneStage
-                mobjects={evaluatedScene.mobjects}
-                progressById={evaluatedScene.progressById}
-                replacements={evaluatedScene.replacements}
-                completedReplacementSources={evaluatedScene.completedReplacementSources}
-                completedReplacementTargets={evaluatedScene.completedReplacementTargets}
-              />
+              {#if rendererMode === 'gpu'}
+                <WebGpuSceneStage
+                  mobjects={evaluatedScene.mobjects}
+                  progressById={evaluatedScene.progressById}
+                  replacements={evaluatedScene.replacements}
+                  completedReplacementSources={evaluatedScene.completedReplacementSources}
+                  completedReplacementTargets={evaluatedScene.completedReplacementTargets}
+                />
+              {:else}
+                <TsSceneStage
+                  mobjects={evaluatedScene.mobjects}
+                  progressById={evaluatedScene.progressById}
+                  replacements={evaluatedScene.replacements}
+                  completedReplacementSources={evaluatedScene.completedReplacementSources}
+                  completedReplacementTargets={evaluatedScene.completedReplacementTargets}
+                />
+              {/if}
               <aside
                 class="rounded-xl border border-slate-800 bg-slate-900/60 p-4"
                 data-testid="mp4-compare-pane"

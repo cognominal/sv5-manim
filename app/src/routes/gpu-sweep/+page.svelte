@@ -4,21 +4,19 @@
   const routes = tsScripts.flatMap((script) =>
     script.scenes.map((scene) => ({
       label: `${script.title} / ${scene.title}`,
-      href: `/ts-scenes/${script.id}/${scene.id}`,
+      href: `/ts-scenes/${script.id}/${scene.id}?renderer=gpu`,
       description: scene.description
     }))
   );
 </script>
 
 <section class="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-6">
-  <h1 class="text-2xl font-semibold text-slate-100">TS-Based Feature Sweep</h1>
+  <h1 class="text-2xl font-semibold text-slate-100">GPU Feature Sweep</h1>
   <p class="max-w-2xl text-slate-300">
-    These routes are driven from TypeScript scene modules, not per-scene
-    Svelte files.
-  </p>
-  <p class="max-w-2xl text-slate-300">
-    For the WebGPU-backed preview path, use
-    <a class="text-cyan-300 underline" href="/gpu-sweep">GPU sweep</a>.
+    These routes reuse the TS scene builders, then render geometry through
+    a three.js WebGPU stage. Text, MathTex, and SVG assets stay on an SVG
+    overlay, and the view falls back to the SVG stage if WebGPU is not
+    available.
   </p>
   <ul class="space-y-2">
     {#each routes as route}

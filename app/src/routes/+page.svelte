@@ -5,6 +5,10 @@
     <a class="text-cyan-300 underline" href="/ts-sweep">/ts-sweep</a>.
   </p>
   <p class="mt-2 max-w-2xl text-slate-300">
+    GPU-backed scene routes are available at
+    <a class="text-cyan-300 underline" href="/gpu-sweep">/gpu-sweep</a>.
+  </p>
+  <p class="mt-2 max-w-2xl text-slate-300">
     New parity scaffold route is available at
     <a class="text-cyan-300 underline" href="/dlxn">/dlxn</a>.
   </p>

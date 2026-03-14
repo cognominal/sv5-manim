@@ -10,6 +10,36 @@ against the Python originals under
 The statuses below are based on the current local `manim-api.ts`
 surface and the current Svelte preview renderer.
 
+For a detailed explanation of how the same TS source can feed both the
+SVG and WebGPU routes, see
+[`TS-RENDERER-ARCHITECTURE.md`](./TS-RENDERER-ARCHITECTURE.md).
+
+Artifact-level video comparisons live in
+[`TS-MP4-PARITY-REPORT.md`](./TS-MP4-PARITY-REPORT.md).
+That report compares the committed Python and TS `medres.mp4` outputs,
+which may lag behind the current source/runtime parity described here.
+WebGPU-specific artifact comparisons now also live in
+[`WEBGPU-MP4-PARITY-REPORT.md`](./WEBGPU-MP4-PARITY-REPORT.md).
+
+The app now also has an optional GPU preview path at
+[`app/src/routes/gpu-sweep/+page.svelte`](/Users/cog/mine/dlx_sv/app/src/routes/gpu-sweep/+page.svelte)
+that reuses the same TS scene builders and evaluator. Its current scope
+is a mostly GPU-backed renderer: vector geometry goes through the new
+[`webgpu-manim-api.ts`](/Users/cog/mine/dlx_sv/app/src/lib/webgpu-manim-api.ts)
+three.js WebGPU stage, and `text`, `mathtex`, `kmathtex`, and `svg`
+primitives now render as texture-backed GPU sprites instead of using
+the overlay SVG layer. If WebGPU is unavailable, the route still falls
+back to the existing SVG stage.
+
+Manual GPU preview exists, but automated WebGPU sweep parity is not yet
+there: the current headed-Chrome capture pass on `2026-03-14` failed to
+produce a comparable GPU MP4 for all `21` checked sweep scenes. That
+means the remaining gap is still basic WebGPU route coverage and
+capture-readiness, not only output quality. Within the scenes that do
+preview manually, `MathTex(..., texSvg)` is texture-backed from its
+generated SVG, but `KMathTex(...)` still uses a simpler text-texture
+fallback instead of a full KaTeX HTML/CSS capture pipeline.
+
 ## Status Legend
 
 - `Parity`: the TS scene now follows the original Python scene model
@@ -144,7 +174,9 @@ surface and the current Svelte preview renderer.
 - Status: `Parity`
 - Notes:
   Now adds only the start expression before playing
-  `TransformMatchingTex`, matching the original scene structure.
+  `TransformMatchingTex`, matching the original scene structure, and
+  supports `transform_mismatches=True` so the unmatched `+` to `-`
+  transition follows the Python demo instead of fading in/out.
 
 ### 19 `geometry_and_text_primitives`
 
