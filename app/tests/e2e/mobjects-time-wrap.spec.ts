@@ -22,8 +22,21 @@ test('mobjects basics starts paused with first frame visible', async ({
     .toMatch(/gpu|webgl/);
 
   await expect(await readDebugMobject(page, 'title')).not.toBeNull();
-  await expect(await readDebugMobject(page, 'square')).not.toBeNull();
-  await expect(await readDebugMobject(page, 'circle')).not.toBeNull();
+  const square = await readDebugMobject(page, 'square');
+  const circle = await readDebugMobject(page, 'circle');
+  expect(square).not.toBeNull();
+  expect(circle).not.toBeNull();
+  expect(square?.id).toMatch(
+    /^app\/src\/lib\/ts-feature-sweep\/ts\/mobjectsBasics\.ts:\d+:square$/
+  );
+  expect(square?.sourceRef).toMatchObject({
+    file: 'app/src/lib/ts-feature-sweep/ts/mobjectsBasics.ts',
+    label: 'square',
+  });
+  expect(square?.sourceRef?.line).toBeGreaterThan(0);
+  expect(circle?.id).toMatch(
+    /^app\/src\/lib\/ts-feature-sweep\/ts\/mobjectsBasics\.ts:\d+:circle$/
+  );
 
   const timeLabel = page.locator('div.w-32.text-right.text-sm.tabular-nums.text-cyan-300');
   await expect(timeLabel).toContainText('0.00 sec');

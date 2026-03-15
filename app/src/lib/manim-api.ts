@@ -16,10 +16,18 @@ type AnimationOpts = {
   rate_func?: string | RateFunction;
 };
 
+export type MobjectSourceRef = {
+  file: string;
+  line: number;
+  column?: number;
+  label?: string;
+};
+
 export type Mobject = {
   [index: number]: Mobject | undefined;
   id: string;
   kind: MobjectKind;
+  sourceRef?: MobjectSourceRef;
   stroke: string;
   strokeWidth: number;
   opacity?: number;
@@ -567,6 +575,61 @@ function autoId(prefix: string): string {
   return `${prefix}_${autoIdSeq}`;
 }
 
+function sourceIdPrefix(ref: Pick<MobjectSourceRef, 'file' | 'line'>): string {
+  return `${ref.file}:${ref.line}`;
+}
+
+function encodeSourceId(ref: MobjectSourceRef): string {
+  const label = ref.label?.trim() ? ref.label : 'auto';
+  return `${sourceIdPrefix(ref)}:${label}`;
+}
+
+function sourceLabelFromEncodedId(
+  id: string,
+  ref: Pick<MobjectSourceRef, 'file' | 'line'>
+): string | null {
+  const prefix = `${sourceIdPrefix(ref)}:`;
+  if (!id.startsWith(prefix)) return null;
+  const label = id.slice(prefix.length);
+  return label.length > 0 ? label : null;
+}
+
+function mobjectSourceLabel(mobject: Mobject): string {
+  const encodedLabel = mobject.sourceRef
+    ? sourceLabelFromEncodedId(mobject.id, mobject.sourceRef)
+    : null;
+  return encodedLabel ??
+    mobject.sourceRef?.label ??
+    mobject.id ??
+    mobject.kind;
+}
+
+function applySourceRefToTree(
+  mobject: Mobject,
+  ref: MobjectSourceRef
+): void {
+  if (!mobject.sourceRef) {
+    mobject.sourceRef = {
+      file: ref.file,
+      line: ref.line,
+      column: ref.column,
+      label: mobject.id || ref.label || mobject.kind,
+    };
+    mobject.id = encodeSourceId(mobject.sourceRef);
+  }
+  for (const child of mobject.children ?? []) {
+    applySourceRefToTree(child, ref);
+  }
+}
+
+export function __attachMobjectSource<T extends Mobject>(
+  mobject: T,
+  ref: MobjectSourceRef
+): T {
+  applySourceRefToTree(mobject, ref);
+  return mobject;
+}
+
 function flattenMobjects(mobjects: Mobject[]): Mobject[] {
   const flat: Mobject[] = [];
   for (const mobject of mobjects) {
@@ -798,9 +861,11 @@ function cloneMobject(
   forcedId?: string,
   regenerateIds = false
 ): Mobject {
+  const nextId = forcedId ?? (regenerateIds ? autoId(mobject.kind) : mobject.id);
   const clone: Mobject = {
     ...mobject,
-    id: forcedId ?? (regenerateIds ? autoId(mobject.kind) : mobject.id),
+    id: nextId,
+    sourceRef: mobject.sourceRef ? { ...mobject.sourceRef } : undefined,
     points: mobject.points?.map((point) => ({ ...point })),
     points3d: mobject.points3d?.map((point) => ({ ...point })),
     center3d: mobject.center3d ? { ...mobject.center3d } : undefined,
@@ -812,6 +877,23 @@ function cloneMobject(
     target: undefined,
     animate: undefined,
   };
+  if (clone.sourceRef) {
+    if (regenerateIds) {
+      clone.sourceRef.label = nextId;
+      clone.id = encodeSourceId(clone.sourceRef);
+    } else {
+      const encodedLabel = sourceLabelFromEncodedId(nextId, clone.sourceRef);
+      if (encodedLabel) {
+        clone.sourceRef.label = encodedLabel;
+        clone.id = nextId;
+      } else if (forcedId && forcedId !== mobject.id) {
+        clone.sourceRef.label = forcedId;
+        clone.id = encodeSourceId(clone.sourceRef);
+      } else {
+        clone.id = encodeSourceId(clone.sourceRef);
+      }
+    }
+  }
   return attachMobjectApi(clone);
 }
 
@@ -1249,7 +1331,14 @@ function attachMobjectApi(mobject: Mobject): Mobject {
   syncGroupIndexProps(mobject);
   mobject.become = (target: Mobject): Mobject => {
     const currentId = mobject.id;
-    Object.assign(mobject, { ...target, id: currentId });
+    const currentSourceRef = mobject.sourceRef
+      ? { ...mobject.sourceRef }
+      : undefined;
+    Object.assign(mobject, {
+      ...target,
+      id: currentId,
+      sourceRef: currentSourceRef,
+    });
     return mobject;
   };
   mobject.animate = {
@@ -1445,7 +1534,8 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     }
     return mobject;
   };
-  mobject.copy = (id?: string): Mobject => cloneMobject(mobject, id, true);
+  mobject.copy = (id?: string): Mobject =>
+    cloneMobject(mobject, id ?? autoId(`${mobjectSourceLabel(mobject)}_copy`), true);
   mobject.setColor = (color: Color): Mobject => {
     mobject.stroke = color;
     mobject.fill = color;
@@ -1658,7 +1748,11 @@ function attachMobjectApi(mobject: Mobject): Mobject {
     return mobject;
   };
   mobject.generateTarget = (): Mobject => {
-    mobject.target = cloneMobject(mobject, `${mobject.id}_target`, true);
+    mobject.target = cloneMobject(
+      mobject,
+      `${mobjectSourceLabel(mobject)}_target`,
+      true
+    );
     return mobject.target;
   };
   mobject.generate_target = mobject.generateTarget;
@@ -4159,23 +4253,32 @@ export function ReplacementTransform(
   };
 }
 
+type TransformMatchingTexOpts = {
+  runTime?: number;
+  run_time?: number;
+  transformMismatches?: boolean;
+  transform_mismatches?: boolean;
+};
+
+function normalizeTransformMismatches(
+  opts?: TransformMatchingTexOpts
+): boolean {
+  return Boolean(
+    opts?.transform_mismatches ?? opts?.transformMismatches
+  );
+}
+
 export function TransformMatchingTex(
   source: Mobject,
   target: Mobject,
-  opts?: { runTime?: number }
+  opts?: TransformMatchingTexOpts
 ): PendingAnimation[] {
-  const runTime = opts?.runTime;
+  const runTime = normalizeRunTime(opts);
+  const transformMismatches = normalizeTransformMismatches(opts);
   const sourceParts = flattenRenderable(source);
   const targetParts = flattenRenderable(target);
-  const sourceByToken = new Map<string, Mobject[]>();
   const targetByToken = new Map<string, Mobject[]>();
 
-  for (const part of sourceParts) {
-    const key = part.token ?? part.text ?? '';
-    const list = sourceByToken.get(key) ?? [];
-    list.push(part);
-    sourceByToken.set(key, list);
-  }
   for (const part of targetParts) {
     const key = part.token ?? part.text ?? '';
     const list = targetByToken.get(key) ?? [];
@@ -4184,24 +4287,59 @@ export function TransformMatchingTex(
   }
 
   const animations: PendingAnimation[] = [];
-  const tokenKeys = new Set([
-    ...sourceByToken.keys(),
-    ...targetByToken.keys(),
-  ]);
-  for (const token of tokenKeys) {
-    const src = sourceByToken.get(token) ?? [];
-    const dst = targetByToken.get(token) ?? [];
-    const matched = Math.min(src.length, dst.length);
-  for (let i = 0; i < matched; i += 1) {
-    const animation = ReplacementTransform(src[i], dst[i], { runTime });
-    animations.push(...(Array.isArray(animation) ? animation : [animation]));
+  const matchedTargetIds = new Set<string>();
+  const mismatchedSources: Mobject[] = [];
+
+  for (const sourcePart of sourceParts) {
+    const key = sourcePart.token ?? sourcePart.text ?? '';
+    const candidates = targetByToken.get(key) ?? [];
+    const targetPart = candidates.shift();
+    if (!targetPart) {
+      mismatchedSources.push(sourcePart);
+      continue;
+    }
+    matchedTargetIds.add(targetPart.id);
+    const animation = ReplacementTransform(sourcePart, targetPart, {
+      runTime,
+    });
+    animations.push(...toPendingAnimations(animation));
   }
-    for (let i = matched; i < src.length; i += 1) {
-      animations.push(...toPendingAnimations(FadeOut(src[i], { runTime })));
+
+  const mismatchedTargets = targetParts.filter(
+    (targetPart) => !matchedTargetIds.has(targetPart.id)
+  );
+
+  if (transformMismatches) {
+    const mismatchCount = Math.min(
+      mismatchedSources.length,
+      mismatchedTargets.length
+    );
+    for (let i = 0; i < mismatchCount; i += 1) {
+      const animation = ReplacementTransform(
+        mismatchedSources[i]!,
+        mismatchedTargets[i]!,
+        { runTime }
+      );
+      animations.push(...toPendingAnimations(animation));
     }
-    for (let i = matched; i < dst.length; i += 1) {
-      animations.push(...toPendingAnimations(Create(dst[i], { runTime })));
+    for (let i = mismatchCount; i < mismatchedSources.length; i += 1) {
+      animations.push(
+        ...toPendingAnimations(FadeOut(mismatchedSources[i]!, { runTime }))
+      );
     }
+    for (let i = mismatchCount; i < mismatchedTargets.length; i += 1) {
+      animations.push(
+        ...toPendingAnimations(Create(mismatchedTargets[i]!, { runTime }))
+      );
+    }
+    return animations;
+  }
+
+  for (const sourcePart of mismatchedSources) {
+    animations.push(...toPendingAnimations(FadeOut(sourcePart, { runTime })));
+  }
+  for (const targetPart of mismatchedTargets) {
+    animations.push(...toPendingAnimations(Create(targetPart, { runTime })));
   }
   return animations;
 }

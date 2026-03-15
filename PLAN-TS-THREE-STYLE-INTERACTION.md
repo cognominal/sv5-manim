@@ -163,6 +163,175 @@ And a derived stable id:
 type EncodedMobjectId = string;
 ```
 
+#### What Counts As An Authored Scene Module
+
+For the current TS implementation, an authored scene module is a
+repo-owned TypeScript file where a scene author directly writes Manim
+scene code.
+
+Current inclusion criteria:
+
+- file path ends in `.ts`
+- file path has no Vite query suffix like `?raw`
+- file lives under
+  `app/src/lib/ts-feature-sweep/ts/`
+- or file lives under `app/src/lib/dlxn/scenes/`
+- and the module imports tracked Manim factories from `$lib/manim` or
+  `$lib/manim-api`
+
+Current included examples:
+
+- `app/src/lib/ts-feature-sweep/ts/mobjectsBasics.ts`
+- `app/src/lib/ts-feature-sweep/ts/axesGraphsPlotting.ts`
+- `app/src/lib/ts-feature-sweep/ts/geometryTextPrimitives.ts`
+- `app/src/lib/dlxn/scenes/dlx3x2ThreeTiles.ts`
+
+Current excluded examples:
+
+- `app/src/lib/manim-api.ts`
+- `app/src/routes/...`
+- `app/src/lib/ts-feature-sweep/scenes/allScenes.ts`
+- non-scene helper modules outside the authored scene directories
+
+Reason for the current scope:
+
+- provenance should reflect the line the scene author wrote
+- wrapping scene-authoring call sites is more stable than patching ids
+  later in the renderer
+- limiting the transform to scene modules avoids rewriting unrelated app
+  code
+
+#### Where Phase 1 Is Exercised
+
+The current phase 1 implementation is exercised in three places:
+
+- build-time transformation of authored scene modules through the Vite
+  pre-transform plugin
+- runtime propagation in `Mobject` cloning APIs such as `copy()`,
+  `generateTarget()`, and `always_redraw`
+- debug and e2e verification through the TS scene route debug snapshot
+
+Concrete exercised paths:
+
+- authored scene sources under `app/src/lib/ts-feature-sweep/ts/`
+- authored scene sources under `app/src/lib/dlxn/scenes/`
+- runtime provenance attachment in `app/src/lib/manim-api.ts`
+- debug exposure in
+  `app/src/routes/ts-scenes/[script]/[scene]/+page.svelte`
+- e2e helpers in `app/tests/e2e/helpers/ts-scene-debug.ts`
+
+Concrete verification cases:
+
+- `app/tests/e2e/mobjects-time-wrap.spec.ts` checks that `square` and
+  `circle` now carry encoded ids and `sourceRef`
+- `app/tests/e2e/axes-plotting.spec.ts` checks the same for `graph`
+- the broader TS preview route checks in
+  `gpu-sweep.spec.ts`, `images-svg-assets.spec.ts`,
+  `rate-functions-timing.spec.ts`, and `ts-sweep.spec.ts` verify that
+  the transform does not break scene loading
+
+#### Vite Plugin Notes
+
+This section documents the current addition to `app/vite.config.ts` for
+someone who is not familiar with Vite plugins.
+
+##### Plain-Language Model
+
+Vite lets the app register plugin objects.
+
+Each plugin can participate in specific parts of the module pipeline.
+For this feature, the important idea is:
+
+- Vite sees a source file before it is bundled
+- a plugin can inspect that file
+- a plugin can return modified source text
+- the rest of the app then compiles the modified version
+
+So the provenance feature works by rewriting scene modules during build
+and dev startup rather than asking every scene author to call a helper
+manually.
+
+##### What Was Added To `vite.config.ts`
+
+The config now registers two local plugins:
+
+- `pySourcesPlugin()`
+- `manimSourceIdPlugin()`
+
+The config itself no longer holds the implementation details.
+It only imports the plugin factories and passes them into the `plugins`
+array.
+
+Current plugin module locations:
+
+- `app/vite-plugins/pySourcesPlugin.ts`
+- `app/vite-plugins/manimSourceIdPlugin.ts`
+
+##### What `manimSourceIdPlugin()` Does
+
+This plugin runs as a Vite `transform` hook with `enforce: 'pre'`.
+
+That means it runs early, before the rest of the normal compile
+pipeline. Its job is:
+
+1. check whether the current file is an authored scene module
+2. parse the TypeScript source into an AST
+3. collect tracked Manim factory names imported by that file
+4. wrap matching constructor calls with
+   `__attachMobjectSource(...)`
+5. inject `import { __attachMobjectSource } from '$lib/manim-source'`
+   if the file did not already import it
+
+Example author code:
+
+```ts
+const square = Square('square', { size: 112, stroke: '#4CC9F0' });
+```
+
+Transformed shape:
+
+```ts
+const square = __attachMobjectSource(
+  Square('square', { size: 112, stroke: '#4CC9F0' }),
+  {
+    file: 'app/src/lib/ts-feature-sweep/ts/mobjectsBasics.ts',
+    line: 20,
+    column: 18
+  }
+);
+```
+
+The runtime helper then stores:
+
+- `mobject.sourceRef`
+- an encoded `mobject.id` such as
+  `app/src/lib/ts-feature-sweep/ts/mobjectsBasics.ts:20:square`
+
+##### Why This Is In Vite Instead Of Runtime Stack Parsing
+
+Build-time transformation is preferred because:
+
+- it captures the exact authored file and line deterministically
+- it avoids parsing JavaScript stack traces at runtime
+- it works consistently in dev and build output
+- it keeps scene code clean and close to ordinary Manim-style authoring
+
+Runtime stack parsing would be slower and more fragile.
+
+##### What The Plugin Does Not Do
+
+The current plugin does not:
+
+- rewrite every TypeScript file in the app
+- infer provenance for arbitrary helper wrappers outside the authored
+  scene directories
+- change Python scene code
+- replace the runtime clone-propagation logic in `manim-api.ts`
+
+So the Vite plugin is only the call-site capture layer.
+The runtime still needs to preserve provenance once an object has been
+created.
+
 ### 2. `Mobject` Interaction Metadata
 
 Add interaction behavior to `Mobject` as metadata, not as a new geometry

@@ -49,6 +49,7 @@
   type DebugMobject = {
     id: string;
     kind: Mobject['kind'];
+    sourceRef?: Mobject['sourceRef'];
     x?: number;
     y?: number;
     width?: number;
@@ -161,6 +162,7 @@
     return {
       id: mobject.id,
       kind: mobject.kind,
+      sourceRef: mobject.sourceRef ? { ...mobject.sourceRef } : undefined,
       x: mobject.x,
       y: mobject.y,
       width: mobject.width,

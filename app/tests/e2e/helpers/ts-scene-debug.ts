@@ -3,6 +3,12 @@ import type { Page } from '@playwright/test';
 export type DebugMobject = {
   id: string;
   kind: string;
+  sourceRef?: {
+    file: string;
+    line: number;
+    column?: number;
+    label?: string;
+  };
   x?: number;
   y?: number;
   width?: number;
@@ -37,11 +43,15 @@ export async function readDebugMobject(
   id: string
 ): Promise<DebugMobject | null> {
   return page.evaluate((targetId) => {
+    const matches = (mobject: DebugMobject): boolean =>
+      mobject.id === targetId ||
+      mobject.id.endsWith(`:${targetId}`) ||
+      mobject.sourceRef?.label === targetId;
     const debugWindow = window as Window & {
       __tsSceneDebug?: SceneDebugSnapshot;
     };
     return debugWindow.__tsSceneDebug?.mobjects.find(
-      (mobject) => mobject.id === targetId
+      (mobject) => matches(mobject)
     ) ?? null;
   }, id);
 }
